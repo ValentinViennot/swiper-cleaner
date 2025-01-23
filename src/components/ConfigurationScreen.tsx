@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Switch } from 'react-native';
+import { styles, colors } from '../styles/config.styles';
 
 type ConfigurationScreenProps = {
   username: string;
@@ -84,8 +85,8 @@ const ConfigurationScreen = ({
         <Switch
           value={newShowReposts}
           onValueChange={setNewShowReposts}
-          trackColor={{ false: '#767577', true: '#81b0ff' }}
-          thumbColor={newShowReposts ? '#2196F3' : '#f4f3f4'}
+          trackColor={{ false: colors.switchTrackOff, true: colors.switchTrackOn }}
+          thumbColor={newShowReposts ? colors.primary : colors.switchThumbOff}
         />
       </View>
 
@@ -138,113 +139,5 @@ const ConfigurationScreen = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'white',
-    padding: 20,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: '#333',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#2196F3',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  buttonDisabled: {
-    backgroundColor: '#cccccc',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    paddingHorizontal: 4,
-  },
-  logoutButton: {
-    marginTop: 12,
-    padding: 15,
-    borderRadius: 8,
-    backgroundColor: '#ff4444',
-  },
-  logoutButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  buttonGroup: {
-    gap: 12,
-    marginTop: 20,
-  },
-  cancelButton: {
-    marginTop: 16,
-    padding: 8,
-  },
-  cancelButtonText: {
-    color: '#999',
-    fontSize: 14,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-  },
-  inlineInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  numberInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 8,
-    width: 50,
-    textAlign: 'center',
-    fontSize: 16,
-  },
-  resetButton: {
-    marginTop: 12,
-    padding: 15,
-    borderRadius: 8,
-    backgroundColor: '#ff9800',
-  },
-  resetButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-});
 
 export default ConfigurationScreen;

@@ -1,90 +1,33 @@
-/* eslint-disable react-native/no-inline-styles */
-import type { AppBskyEmbedImages, AppBskyFeedPost } from '@atproto/api';
-import type { PostView } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
+import type { AppBskyFeedPost } from '@atproto/api';
 import { AntDesign } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Image, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { configureReanimatedLogger } from 'react-native-reanimated';
 import { Swiper, type SwiperCardRefType } from 'rn-swiper-list';
+
 import ActionButton from './components/ActionButton';
 import ConfigurationScreen from './components/ConfigurationScreen';
+import { MemoizedCard } from './components/MemoizedCard';
+import { SPRING_CONFIG, STORAGE_KEYS } from './constants/storage';
 import { BlueSkyService } from './services/bluesky';
-
-import { configureReanimatedLogger } from 'react-native-reanimated';
+import { styles, windowHeight, windowWidth } from './styles/app.styles';
+import type { PostData, TriagedPostsMap } from './types/post';
+import { Mutex } from './utils/Mutex';
 
 console.log('[App] Configuring Reanimated logger');
 configureReanimatedLogger({
   strict: false,
 });
 
-const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
 const ICON_SIZE = 24;
-
-type PostData = PostView & { record: AppBskyFeedPost.Record };
-type TriagedPostsMap = Map<string, string>; // <uri, timestamp>
-
-type MemoizedCardProps = {
-  postData: PostData;
-  renderPostImage: (img: any, index: number) => React.ReactNode;
-  renderPostStats: (postData: PostData) => React.ReactNode;
-};
-
-// Configuration
-const springConfig = {
-  stiffness: 200,
-  damping: 15,
-  mass: 1,
-  overshootClamping: true,
-  restDisplacementThreshold: 0.01,
-  restSpeedThreshold: 0.01,
-};
-
-const STORAGE_KEYS = {
-  USERNAME: '@bluesky_username',
-  APP_PASSWORD: '@bluesky_app_password',
-  SHOW_REPOSTS: '@bluesky_show_reposts',
-  TRIAGED_PREFIX: '@bluesky_triaged:',
-  REVIEW_INTERVAL: '@bluesky_review_interval',
-};
-
-// Add this class near the top, after imports
-class Mutex {
-  private locked = false;
-  private queue: (() => void)[] = [];
-
-  async acquire(): Promise<void> {
-    return new Promise(resolve => {
-      if (!this.locked) {
-        this.locked = true;
-        resolve();
-      } else {
-        this.queue.push(resolve);
-      }
-    });
-  }
-
-  release(): void {
-    if (this.queue.length > 0) {
-      const next = this.queue.shift();
-      if (next) next();
-    } else {
-      this.locked = false;
-    }
-  }
-}
-
-// Add this at the top level, outside the component
 const blueskyService = new BlueSkyService();
+
+type PostImage = {
+  thumb: string;
+  aspectRatio?: { width: number; height: number };
+};
 
 const App = () => {
   const [posts, setPosts] = useState<PostData[]>([]);
@@ -110,6 +53,7 @@ const App = () => {
   const ref = useRef<SwiperCardRefType>();
   const isLoading = useRef(false);
   const swipeMutex = useRef(new Mutex());
+  const initializationComplete = useRef(false);
 
   // Storage Helpers
   const loadTriagedPosts = async () => {
@@ -318,8 +262,6 @@ const App = () => {
         }));
 
         console.log(`[Posts] Loaded ${formattedPosts.length} posts into state`);
-
-        // Always set isInitialized to true after a successful load
         setIsInitialized(true);
 
         if (formattedPosts.length === 0 && !hasMore) {
@@ -351,22 +293,21 @@ const App = () => {
     ],
   );
 
-  // Rendering Helpers
-  const renderPostImage = useCallback(
-    (img: any, index: number) => (
+  const renderPostImage = useCallback((img: unknown, index: number) => {
+    const image = img as PostImage;
+    return (
       <Image
         key={index}
-        source={{ uri: img.thumb }}
+        source={{ uri: image.thumb }}
         style={[
           styles.postImage,
           {
-            aspectRatio: (img.aspectRatio?.width ?? 1) / (img.aspectRatio?.height ?? 1),
+            aspectRatio: (image.aspectRatio?.width ?? 1) / (image.aspectRatio?.height ?? 1),
           },
         ]}
       />
-    ),
-    [],
-  );
+    );
+  }, []);
 
   const renderPostStats = useCallback(
     (postData: PostData) => (
@@ -379,41 +320,6 @@ const App = () => {
     [],
   );
 
-  // Add this new memoized component
-  const MemoizedCard = React.memo(
-    ({ postData, renderPostImage, renderPostStats }: MemoizedCardProps) => {
-      return (
-        <View style={styles.renderCardContainer}>
-          <View style={styles.cardContent}>
-            <View style={styles.authorContainer}>
-              <Image source={{ uri: postData.author.avatar }} style={styles.avatar} />
-              <View style={styles.authorInfo}>
-                <Text style={styles.displayName}>{postData.author.displayName}</Text>
-                <Text style={styles.handle}>@{postData.author.handle}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.postText}>{postData.record.text}</Text>
-
-            {postData.embed?.$type === 'app.bsky.embed.images#view' && (
-              <View style={styles.imageContainer}>
-                {(postData.embed as AppBskyEmbedImages.View).images.map(renderPostImage)}
-              </View>
-            )}
-
-            <View style={styles.postFooter}>
-              <Text style={styles.dateText}>
-                {new Date(postData.record.createdAt).toLocaleString()}
-              </Text>
-              {renderPostStats(postData)}
-            </View>
-          </View>
-        </View>
-      );
-    },
-  );
-
-  // Update the renderCard function
   const renderCard = useCallback(
     (postData: PostData) => (
       <MemoizedCard
@@ -426,22 +332,20 @@ const App = () => {
   );
 
   // Overlay Labels
-  const createOverlayLabel = useCallback(
-    (text: string, color: string) => () => (
+  const createOverlayLabel = useCallback((text: string, color: string) => {
+    const OverlayLabel = () => (
       <View
         style={[
           styles.overlayLabelContainer,
-          {
-            backgroundColor: color,
-            justifyContent: 'center',
-            alignItems: 'center',
-          },
+          styles.overlayLabelAlignment,
+          { backgroundColor: color },
         ]}>
         <Text style={styles.overlayText}>{text}</Text>
       </View>
-    ),
-    [],
-  );
+    );
+    OverlayLabel.displayName = `OverlayLabel${text}`;
+    return OverlayLabel;
+  }, []);
 
   const OverlayLabelRight = createOverlayLabel('KEEP', 'green');
   const OverlayLabelLeft = createOverlayLabel('DELETE', 'red');
@@ -476,13 +380,11 @@ const App = () => {
           throw new Error('Invalid post URI (no URI)');
         }
 
-        // Check if we've already processed this post
         if (processedPosts.has(postUri)) {
           console.log('[Swipe] Post already processed, skipping:', postUri);
           return;
         }
 
-        // Mark as processed before performing actions to prevent duplicates
         processedPosts.add(postUri);
 
         switch (direction) {
@@ -516,7 +418,6 @@ const App = () => {
     [posts, addTriagedPost, processedPosts],
   );
 
-  // Add this helper function to remove a post from triaged storage
   const removeFromTriaged = async (uri: string) => {
     console.log(`[Storage] Removing post from triage: ${uri}`);
     const normalizedUri = uri.toLowerCase();
@@ -538,16 +439,13 @@ const App = () => {
       const rewindedPost = posts[currentIndex - 1];
       if (rewindedPost?.uri) {
         console.log('[Button] Removing post from queues:', rewindedPost.uri);
-        // Remove from deletion queue if present
         setDeletionQueue(prev => prev.filter(uri => uri !== rewindedPost.uri));
-        // Remove from triaged posts if present
         await removeFromTriaged(rewindedPost.uri);
       }
       ref.current?.swipeBack();
     }
   }, [currentIndex, posts]);
 
-  // Update handleButtonPress to handle reload/rewind properly
   const handleButtonPress = useCallback(
     (action: string) => {
       console.log(`[Button] ${action} button pressed`);
@@ -569,7 +467,7 @@ const App = () => {
           break;
       }
     },
-    [posts, removeFromTriaged, currentIndex],
+    [rewindToPreviousPost],
   );
 
   const processDeletionQueue = useCallback(async () => {
@@ -586,9 +484,8 @@ const App = () => {
       console.error('[Delete] Error processing deletion queue:', error);
       Alert.alert('Error', 'Failed to delete some posts. Please try again.');
     }
-  }, [deletionQueue]);
+  }, [deletionQueue, addTriagedPost]);
 
-  // Update handleReset to include more debugging and state management
   const handleReset = useCallback(async () => {
     console.log('[Reset] Starting reset process');
     try {
@@ -597,22 +494,19 @@ const App = () => {
       console.log(`[Reset] Found ${triagedKeys.length} triaged keys to remove`);
       await AsyncStorage.multiRemove(triagedKeys);
 
-      // Clear all relevant state
       console.log('[Reset] Clearing application state');
       setTriagedPosts(new Map());
       processedPosts.clear();
       setPosts([]);
       setDeletionQueue([]);
       setCurrentIndex(0);
-      setHasMorePosts(true); // Reset this flag to ensure we try to load posts
+      setHasMorePosts(true);
       setIsComplete(false);
       setIsInitialized(false);
       setShowConfig(false);
 
-      // Force a delay to ensure state updates have propagated
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Load posts with reset cursor after clearing state
       console.log('[Reset] Loading fresh posts');
       const result = await loadPosts(true);
       console.log('[Reset] Load posts result:', { result, hasMorePosts, posts: posts.length });
@@ -620,9 +514,8 @@ const App = () => {
       console.error('[Reset] Error resetting triaged posts:', error);
       Alert.alert('Error', 'Failed to reset triaged posts. Please try again.');
     }
-  }, [processedPosts, loadPosts, posts.length, hasMorePosts]);
+  }, [loadPosts, posts.length, hasMorePosts]);
 
-  // Update the onSwipedAll handler
   const handleSwipedAll = useCallback(async () => {
     console.log('[Swiper] Reached end of stack, checking for more posts');
     if (!hasMorePosts) {
@@ -633,16 +526,19 @@ const App = () => {
 
     await swipeMutex.current.acquire();
     try {
-      await loadPosts(false); // false means don't reset cursor
+      await loadPosts(false);
       console.log('[Swiper] Additional posts loaded');
     } finally {
       swipeMutex.current.release();
     }
   }, [hasMorePosts, loadPosts]);
 
-  // Replace the initial credentials loading effect
   useEffect(() => {
     const initializeApp = async () => {
+      if (initializationComplete.current) {
+        return;
+      }
+
       console.log('[App] Starting initialization');
       try {
         await loadCredentials();
@@ -650,6 +546,7 @@ const App = () => {
         await cleanExpiredTriagedPosts();
         setIsAppReady(true);
         console.log('[App] Initialization complete');
+        initializationComplete.current = true;
       } catch (error) {
         console.error('[App] Initialization failed:', error);
       }
@@ -658,20 +555,17 @@ const App = () => {
     initializeApp();
   }, []);
 
-  // Update the posts loading effect to prevent unnecessary reloads
   useEffect(() => {
-    if (isAppReady && !isInitialized && !showConfig && !isComplete) {
+    if (isAppReady && !isInitialized && !showConfig && !isComplete && !isLoading.current) {
       console.log('[Effect] Loading initial posts - app is ready');
       loadPosts(true);
     }
   }, [isAppReady, isInitialized, showConfig, isComplete, loadPosts]);
 
-  // Add initialization logging to a useEffect that only runs once
   useEffect(() => {
     console.log('[App] Component mounted');
   }, []);
 
-  // Render
   return (
     <GestureHandlerRootView style={styles.container}>
       <View style={styles.header}>
@@ -721,10 +615,10 @@ const App = () => {
               OverlayLabelLeft={OverlayLabelLeft}
               OverlayLabelTop={OverlayLabelTop}
               OverlayLabelBottom={OverlayLabelBottom}
-              swipeRightSpringConfig={springConfig}
-              swipeLeftSpringConfig={springConfig}
-              swipeTopSpringConfig={springConfig}
-              swipeBottomSpringConfig={springConfig}
+              swipeRightSpringConfig={SPRING_CONFIG}
+              swipeLeftSpringConfig={SPRING_CONFIG}
+              swipeTopSpringConfig={SPRING_CONFIG}
+              swipeBottomSpringConfig={SPRING_CONFIG}
               inputOverlayLabelRightOpacityRange={[0, windowWidth / 2]}
               outputOverlayLabelRightOpacityRange={[0, 1]}
               inputOverlayLabelLeftOpacityRange={[0, -(windowWidth / 2)]}
@@ -779,218 +673,3 @@ const App = () => {
 };
 
 export default App;
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonsContainer: {
-    flexDirection: 'row',
-    bottom: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
-  },
-  button: {
-    height: 50,
-    borderRadius: 40,
-    aspectRatio: 1,
-    backgroundColor: '#3A3D45',
-    elevation: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: 'black',
-    shadowOpacity: 0.1,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-  },
-  buttonText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  cardStyle: {
-    width: '95%',
-    height: '75%',
-    borderRadius: 15,
-    marginVertical: 20,
-  },
-  renderCardContainer: {
-    flex: 1,
-    borderRadius: 15,
-    height: '75%',
-    width: '100%',
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardContent: {
-    flex: 1,
-    padding: 16,
-  },
-  authorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  authorInfo: {
-    marginLeft: 12,
-  },
-  displayName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-  },
-  handle: {
-    fontSize: 14,
-    color: '#666',
-  },
-  postText: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#2C2C2C',
-    marginBottom: 12,
-  },
-  imageContainer: {
-    marginVertical: 8,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  postImage: {
-    width: '100%',
-    height: undefined,
-    borderRadius: 8,
-  },
-  postFooter: {
-    marginTop: 'auto',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
-  },
-  dateText: {
-    fontSize: 14,
-    color: '#8E8E93',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  hiddenStatText: {
-    fontSize: 14,
-    color: 'transparent',
-  },
-  subContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  overlayLabelContainer: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 15,
-  },
-  header: {
-    position: 'absolute',
-    top: 50,
-    right: 16,
-    zIndex: 1,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  userInfoText: {
-    fontSize: 13,
-    color: '#999',
-    fontWeight: '400',
-  },
-  settingsIcon: {
-    marginLeft: 6,
-  },
-  overlayText: {
-    color: 'white',
-    fontSize: 32,
-    fontWeight: 'bold',
-    letterSpacing: 2,
-  },
-  confirmButton: {
-    position: 'absolute',
-    top: 50,
-    left: 16,
-    backgroundColor: '#ff4444',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    zIndex: 1,
-  },
-  confirmButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  completeContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  completeText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2196F3',
-    marginBottom: 12,
-  },
-  completeSubtext: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  refreshButton: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  refreshButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-});

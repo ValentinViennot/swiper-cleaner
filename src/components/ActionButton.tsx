@@ -13,4 +13,6 @@ const ActionButton = React.memo(({ onTap, style, children, ...rest }: ActionButt
   );
 });
 
+ActionButton.displayName = 'ActionButton';
+
 export default ActionButton;
