@@ -20,19 +20,6 @@ const colors = {
 };
 
 export const styles = StyleSheet.create({
-  authorContainer: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  authorInfo: {
-    marginLeft: 12,
-  },
-  avatar: {
-    borderRadius: 22,
-    height: 44,
-    width: 44,
-  },
   button: {
     alignItems: 'center',
     aspectRatio: 1,
@@ -58,10 +45,6 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 24,
     justifyContent: 'center',
-  },
-  cardContent: {
-    flex: 1,
-    padding: 16,
   },
   cardStyle: {
     borderRadius: 15,
@@ -107,19 +90,6 @@ export const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  dateText: {
-    color: colors.text.light,
-    fontSize: 14,
-  },
-  displayName: {
-    color: colors.text.primary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  handle: {
-    color: colors.text.secondary,
-    fontSize: 14,
-  },
   header: {
     position: 'absolute',
     right: 16,
@@ -129,11 +99,6 @@ export const styles = StyleSheet.create({
   hiddenStatText: {
     color: colors.transparent,
     fontSize: 14,
-  },
-  imageContainer: {
-    borderRadius: 8,
-    marginVertical: 8,
-    overflow: 'hidden',
   },
   loadingContainer: {
     alignItems: 'center',
@@ -160,26 +125,6 @@ export const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 2,
   },
-  postFooter: {
-    alignItems: 'center',
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 'auto',
-    paddingTop: 12,
-  },
-  postImage: {
-    borderRadius: 8,
-    height: undefined,
-    width: '100%',
-  },
-  postText: {
-    color: colors.text.dark,
-    fontSize: 16,
-    lineHeight: 22,
-    marginBottom: 12,
-  },
   refreshButton: {
     backgroundColor: colors.primary,
     borderRadius: 20,
@@ -191,33 +136,8 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  renderCardContainer: {
-    backgroundColor: colors.white,
-    borderColor: colors.border,
-    borderRadius: 15,
-    borderWidth: 1,
-    elevation: 3,
-    flex: 1,
-    height: '75%',
-    shadowColor: colors.black,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    width: '100%',
-  },
   settingsIcon: {
     marginLeft: 6,
-  },
-  statText: {
-    color: colors.text.secondary,
-    fontSize: 14,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 12,
   },
   subContainer: {
     alignItems: 'center',
@@ -235,13 +155,6 @@ export const styles = StyleSheet.create({
     color: colors.text.tertiary,
     fontSize: 13,
     fontWeight: '400',
-  },
-  repostIndicator: {
-    color: colors.text.tertiary,
-    fontSize: 13,
-    position: 'absolute',
-    right: 16,
-    top: 16,
   },
 });
 

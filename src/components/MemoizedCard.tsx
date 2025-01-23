@@ -1,41 +1,100 @@
-import type { AppBskyEmbedImages } from '@atproto/api';
-import React from 'react';
+import type { AppBskyEmbedImages, AppBskyEmbedVideo } from '@atproto/api';
+import React, { useCallback } from 'react';
 import { Image, Text, View } from 'react-native';
-import { styles } from '../styles/app.styles';
+import { cardStyles } from '../styles/card.styles';
 import type { PostData } from '../types/post';
 
-interface CardProps {
+type CardProps = {
   postData: PostData;
-  renderPostImage: (img: unknown, index: number) => React.ReactNode;
-  renderPostStats: (postData: PostData) => React.ReactNode;
   isRepost: boolean;
-}
+};
 
-const Card = ({ postData, renderPostImage, renderPostStats, isRepost }: CardProps) => {
+type MediaEmbed = {
+  thumb: string;
+  aspectRatio?: { width: number; height: number };
+  isVideo?: boolean;
+};
+
+const Card = ({ postData, isRepost }: CardProps) => {
   console.log('[MemoizedCard] Rendering card:', { uri: postData.uri, isRepost });
 
+  const renderPostImage = useCallback((media: MediaEmbed, index: number) => {
+    return (
+      <Image
+        key={index}
+        source={{ uri: media.thumb }}
+        style={[
+          cardStyles.postImage,
+          {
+            aspectRatio: (media.aspectRatio?.width ?? 1) / (media.aspectRatio?.height ?? 1),
+          },
+        ]}
+      />
+    );
+  }, []);
+
+  const renderPostStats = useCallback(
+    (postData: PostData) => (
+      <View style={cardStyles.statsContainer}>
+        <Text style={cardStyles.statText}>💬 {postData.replyCount}</Text>
+        <Text style={cardStyles.statText}>🔁 {postData.repostCount}</Text>
+        <Text style={cardStyles.statText}>❤️ {postData.likeCount}</Text>
+      </View>
+    ),
+    [],
+  );
+
+  const getEmbeddedMedia = useCallback((embed: unknown): MediaEmbed[] | null => {
+    console.log('[Embed] Post embed data:', JSON.stringify(embed, null, 2));
+
+    if (!embed) return null;
+
+    switch ((embed as { $type: string }).$type) {
+      case 'app.bsky.embed.images#view':
+        return (embed as AppBskyEmbedImages.View).images.map(img => ({
+          thumb: img.thumb,
+          aspectRatio: img.aspectRatio,
+          isVideo: false,
+        }));
+
+      case 'app.bsky.embed.video#view': {
+        const videoEmbed = embed as AppBskyEmbedVideo.View;
+        return [
+          {
+            thumb: videoEmbed.thumbnail ?? '',
+            aspectRatio: videoEmbed.aspectRatio,
+            isVideo: true,
+          },
+        ];
+      }
+
+      default:
+        return null;
+    }
+  }, []);
+
+  const embeddedMedia = getEmbeddedMedia(postData.embed);
+
   return (
-    <View style={styles.renderCardContainer}>
-      {isRepost && <Text style={[styles.repostIndicator, { opacity: 1 }]}>🔄 Repost</Text>}
-      <View style={styles.cardContent}>
-        <View style={styles.authorContainer}>
-          <Image source={{ uri: postData.author.avatar }} style={styles.avatar} />
-          <View style={styles.authorInfo}>
-            <Text style={styles.displayName}>{postData.author.displayName}</Text>
-            <Text style={styles.handle}>@{postData.author.handle}</Text>
+    <View style={cardStyles.renderCardContainer}>
+      {isRepost && <Text style={[cardStyles.repostIndicator, { opacity: 1 }]}>🔄 Repost</Text>}
+      <View style={cardStyles.cardContent}>
+        <View style={cardStyles.authorContainer}>
+          <Image source={{ uri: postData.author.avatar }} style={cardStyles.avatar} />
+          <View style={cardStyles.authorInfo}>
+            <Text style={cardStyles.displayName}>{postData.author.displayName}</Text>
+            <Text style={cardStyles.handle}>@{postData.author.handle}</Text>
           </View>
         </View>
 
-        <Text style={styles.postText}>{postData.record.text}</Text>
+        <Text style={cardStyles.postText}>{postData.record.text}</Text>
 
-        {postData.embed?.$type === 'app.bsky.embed.images#view' && (
-          <View style={styles.imageContainer}>
-            {(postData.embed as AppBskyEmbedImages.View).images.map(renderPostImage)}
-          </View>
+        {embeddedMedia && (
+          <View style={cardStyles.imageContainer}>{embeddedMedia.map(renderPostImage)}</View>
         )}
 
-        <View style={styles.postFooter}>
-          <Text style={styles.dateText}>
+        <View style={cardStyles.postFooter}>
+          <Text style={cardStyles.dateText}>
             {new Date(postData.record.createdAt).toLocaleString()}
           </Text>
           {renderPostStats(postData)}

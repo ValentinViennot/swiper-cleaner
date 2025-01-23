@@ -2,7 +2,7 @@ import type { AppBskyFeedPost } from '@atproto/api';
 import { AntDesign } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger } from 'react-native-reanimated';
 import { Swiper, type SwiperCardRefType } from 'rn-swiper-list';
@@ -23,11 +23,6 @@ configureReanimatedLogger({
 
 const ICON_SIZE = 24;
 const blueskyService = new BlueSkyService();
-
-type PostImage = {
-  thumb: string;
-  aspectRatio?: { width: number; height: number };
-};
 
 const App = () => {
   const [posts, setPosts] = useState<PostData[]>([]);
@@ -297,43 +292,9 @@ const App = () => {
     ],
   );
 
-  const renderPostImage = useCallback((img: unknown, index: number) => {
-    const image = img as PostImage;
-    return (
-      <Image
-        key={index}
-        source={{ uri: image.thumb }}
-        style={[
-          styles.postImage,
-          {
-            aspectRatio: (image.aspectRatio?.width ?? 1) / (image.aspectRatio?.height ?? 1),
-          },
-        ]}
-      />
-    );
-  }, []);
-
-  const renderPostStats = useCallback(
-    (postData: PostData) => (
-      <View style={styles.statsContainer}>
-        <Text style={styles.statText}>💬 {postData.replyCount}</Text>
-        <Text style={styles.statText}>🔁 {postData.repostCount}</Text>
-        <Text style={styles.statText}>❤️ {postData.likeCount}</Text>
-      </View>
-    ),
-    [],
-  );
-
   const renderCard = useCallback(
-    (postData: PostData) => (
-      <MemoizedCard
-        postData={postData}
-        renderPostImage={renderPostImage}
-        renderPostStats={renderPostStats}
-        isRepost={!!postData.repostUri}
-      />
-    ),
-    [renderPostImage, renderPostStats],
+    (postData: PostData) => <MemoizedCard postData={postData} isRepost={!!postData.repostUri} />,
+    [],
   );
 
   // Overlay Labels
