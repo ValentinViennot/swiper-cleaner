@@ -1,41 +1,37 @@
 {
-  "name": "React Native",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "mounts": [
-    "source=${localWorkspaceFolderBasename}-gradle-cache,target=/root/.gradle/,type=volume",
-    "source=${localWorkspaceFolderBasename}-cache,target=/root/.cache/,type=volume",
-    "source=${localWorkspaceFolderBasename}-android-cache,target=/root/.android/,type=volume",
-    "source=${localWorkspaceFolderBasename}-node_modules,target=${containerWorkspaceFolder}/node_modules,type=volume"
-  ],
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "AntonyDalmiere.android-support",
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "msjsdiag.vscode-react-native",
-        "dsznajder.es7-react-js-snippets",
-        "rvest.vs-code-prettier-eslint",
-        "streetsidesoftware.code-spell-checker"
-      ]
-    }
-  },
-  "features": {
-    "ghcr.io/devcontainers/features/java:1": {
-      "version": "11",
-      "installMaven": "false",
-      "installGradle": "true"
-    }
-  },
-  "forwardPorts": [5901, 6080, 8081],
-  "initializeCommand": "bash .devcontainer/initializeCommand.sh",
-  "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
-  //  && /usr/bin/supervisord",
-  "runArgs": [
-    // "-p=8081:8081",
-    "--env-file",
-    ".devcontainer/.env"
-  ]
+    "name": "React Native",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "mounts": [
+        "source=${localWorkspaceFolderBasename}-gradle-cache,target=/root/.gradle/,type=volume",
+        "source=${localWorkspaceFolderBasename}-cache,target=/root/.cache/,type=volume",
+        "source=${localWorkspaceFolderBasename}-android-cache,target=/root/.android/,type=volume",
+        "source=${localWorkspaceFolderBasename}-android-sdk,target=/opt/android-sdk/,type=volume",
+        "source=${localWorkspaceFolderBasename}-node_modules,target=${containerWorkspaceFolder}/node_modules/,type=volume"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "AntonyDalmiere.android-support",
+                "dbaeumer.vscode-eslint",
+                "esbenp.prettier-vscode",
+                "msjsdiag.vscode-react-native",
+                "dsznajder.es7-react-js-snippets",
+                "rvest.vs-code-prettier-eslint",
+                "streetsidesoftware.code-spell-checker"
+            ]
+        }
+    },
+    "forwardPorts": [
+        5901,
+        6080,
+        8081
+    ],
+    "initializeCommand": "bash .devcontainer/initializeCommand.sh",
+    "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
+    "runArgs": [
+        "--env-file",
+        ".devcontainer/.env"
+    ]
 }

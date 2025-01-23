@@ -1,15 +1,19 @@
 {
   "name": "swiper-cleaner",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "main": "node_modules/expo/AppEntry.js",
+  "author": "Unstatic Labs",
+  "homepage": "https://unstaticlabs.com",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
+    "prebuild": "expo prebuild",
+    "build:android": "expo prebuild && cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
     "@atproto/api": "^0.13.30",
@@ -34,6 +38,7 @@
     "babel-loader": "^8.1.0",
     "babel-plugin-module-resolver": "^5.0.0",
     "create-expo-app": "^2.1.1",
+    "eas-cli": "^14.5.0",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-import": "^2.31.0",
