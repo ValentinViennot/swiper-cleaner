@@ -100,6 +100,7 @@ const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [processedPosts] = useState(new Set<string>());
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
 
   // Refs
   const ref = useRef<SwiperCardRefType>();
@@ -267,76 +268,80 @@ const App = () => {
   };
 
   // Post Loading
-  const loadPosts = useCallback(async () => {
-    console.log('[Posts] Starting to load posts');
-    if (!credentials.username || !credentials.appPassword || showConfig || isLoggingIn) {
-      console.log('[Posts] Skipping post load - missing credentials or showing config');
-      return;
-    }
-
-    setIsLoadingPosts(true);
-    setIsComplete(false);
-    console.log('[Posts] Starting to load posts');
-    try {
-      console.log('[Posts] Attempting login');
-      await bluesky.current.login(credentials.username, credentials.appPassword);
-      console.log('[Posts] Login successful');
-
-      console.log('[Posts] Fetching user posts');
-      const userPostsResponse = await bluesky.current.getUserPosts();
-      console.log(`[Posts] Received ${userPostsResponse.length} raw posts`);
-
-      // Get all triaged URIs in lowercase for comparison
-      const triagedUris = Array.from(triagedPosts.keys()).map(uri => uri.toLowerCase());
-      console.log(`[Posts] Found ${triagedUris.length} triaged posts to filter out`);
-
-      const filteredPosts = userPostsResponse.filter(post => {
-        const postUri = post.post.uri.toLowerCase();
-        // Check both triaged and processed posts
-        const isTriaged = triagedUris.includes(postUri);
-        const isProcessed = processedPosts.has(postUri);
-
-        if (isTriaged || isProcessed) {
-          console.log('[Posts] Filtering out triaged/processed post:', postUri);
-          return false;
-        }
-        if (!showReposts && post.reason?.$type === 'app.bsky.feed.defs#reasonRepost') {
-          console.log('[Posts] Filtering out repost:', postUri);
-          return false;
-        }
-        const type = (post.post.record as { $type: string }).$type;
-        return type === 'app.bsky.feed.post';
-      });
-
-      const formattedPosts = filteredPosts.map(post => ({
-        ...post.post,
-        record: post.post.record as AppBskyFeedPost.Record,
-      }));
-
-      console.log(`[Posts] Loaded ${formattedPosts.length} posts into state`);
-      if (formattedPosts.length === 0) {
-        console.log('[Posts] No posts remaining after filtering, marking as complete');
-        setIsComplete(true);
-      } else {
-        setPosts(formattedPosts);
-        setIsInitialized(true);
+  const loadPosts = useCallback(
+    async (resetCursor = false) => {
+      console.log('[Posts] Starting to load posts');
+      if (!credentials.username || !credentials.appPassword || showConfig || isLoggingIn) {
+        console.log('[Posts] Skipping post load - missing credentials or showing config');
+        return;
       }
-    } catch (error) {
-      console.error('[Posts] Error loading posts:', error);
-      await clearCredentials();
-    } finally {
-      setIsLoadingPosts(false);
-    }
-  }, [
-    credentials.username,
-    credentials.appPassword,
-    showConfig,
-    isLoggingIn,
-    showReposts,
-    triagedPosts,
-    posts.length,
-    processedPosts,
-  ]);
+
+      setIsLoadingPosts(true);
+      setIsComplete(false);
+
+      try {
+        console.log('[Posts] Attempting login');
+        await bluesky.current.login(credentials.username, credentials.appPassword);
+        console.log('[Posts] Login successful');
+
+        console.log('[Posts] Fetching user posts');
+        const { feed: userPostsResponse, hasMore } =
+          await bluesky.current.getUserPosts(resetCursor);
+        console.log(`[Posts] Received ${userPostsResponse.length} raw posts, hasMore: ${hasMore}`);
+        setHasMorePosts(hasMore);
+
+        // Get all triaged URIs in lowercase for comparison
+        const triagedUris = Array.from(triagedPosts.keys()).map(uri => uri.toLowerCase());
+        console.log(`[Posts] Found ${triagedUris.length} triaged posts to filter out`);
+
+        const filteredPosts = userPostsResponse.filter(post => {
+          const postUri = post.post.uri.toLowerCase();
+          // Check both triaged and processed posts
+          const isTriaged = triagedUris.includes(postUri);
+          const isProcessed = processedPosts.has(postUri);
+
+          if (isTriaged || isProcessed) {
+            console.log('[Posts] Filtering out triaged/processed post:', postUri);
+            return false;
+          }
+          if (!showReposts && post.reason?.$type === 'app.bsky.feed.defs#reasonRepost') {
+            console.log('[Posts] Filtering out repost:', postUri);
+            return false;
+          }
+          const type = (post.post.record as { $type: string }).$type;
+          return type === 'app.bsky.feed.post';
+        });
+
+        const formattedPosts = filteredPosts.map(post => ({
+          ...post.post,
+          record: post.post.record as AppBskyFeedPost.Record,
+        }));
+
+        console.log(`[Posts] Loaded ${formattedPosts.length} posts into state`);
+        if (formattedPosts.length === 0 && !hasMore) {
+          console.log('[Posts] No posts remaining and no more to load, marking as complete');
+          setIsComplete(true);
+        } else {
+          setPosts(prev => (resetCursor ? formattedPosts : [...prev, ...formattedPosts]));
+          setIsInitialized(true);
+        }
+      } catch (error) {
+        console.error('[Posts] Error loading posts:', error);
+        await clearCredentials();
+      } finally {
+        setIsLoadingPosts(false);
+      }
+    },
+    [
+      credentials.username,
+      credentials.appPassword,
+      showConfig,
+      isLoggingIn,
+      showReposts,
+      triagedPosts,
+      processedPosts,
+    ],
+  );
 
   // Rendering Helpers
   const renderPostImage = useCallback(
@@ -587,6 +592,24 @@ const App = () => {
     }
   }, [processedPosts]); // Add processedPosts to dependencies
 
+  // Update the onSwipedAll handler
+  const handleSwipedAll = useCallback(async () => {
+    console.log('[Swiper] Reached end of stack, checking for more posts');
+    if (!hasMorePosts) {
+      console.log('[Swiper] No more posts available');
+      setIsComplete(true);
+      return;
+    }
+
+    await swipeMutex.current.acquire();
+    try {
+      await loadPosts(false); // false means don't reset cursor
+      console.log('[Swiper] Additional posts loaded');
+    } finally {
+      swipeMutex.current.release();
+    }
+  }, [hasMorePosts, loadPosts]);
+
   // Effects
   useEffect(() => {
     console.log('[Effect] Loading initial credentials');
@@ -640,7 +663,7 @@ const App = () => {
               ? `Come back in ${reviewInterval} days to review more posts`
               : 'No more posts to review'}
           </Text>
-          <TouchableOpacity style={styles.refreshButton} onPress={loadPosts}>
+          <TouchableOpacity style={styles.refreshButton} onPress={() => loadPosts(true)}>
             <Text style={styles.refreshButtonText}>Check Again</Text>
           </TouchableOpacity>
         </View>
@@ -660,19 +683,7 @@ const App = () => {
               onSwipeRight={cardIndex => handleSwipe('right', cardIndex)}
               onSwipeTop={cardIndex => handleSwipe('up', cardIndex)}
               onSwipeBottom={cardIndex => handleSwipe('down', cardIndex)}
-              onSwipedAll={() => {
-                console.log('[Swiper] Reached end of stack, loading more posts');
-                swipeMutex.current.acquire().then(() => {
-                  setIsInitialized(false);
-                  loadPosts()
-                    .then(() => {
-                      console.log('[Swiper] Posts loaded after reaching end');
-                    })
-                    .finally(() => {
-                      swipeMutex.current.release();
-                    });
-                });
-              }}
+              onSwipedAll={handleSwipedAll}
               OverlayLabelRight={OverlayLabelRight}
               OverlayLabelLeft={OverlayLabelLeft}
               OverlayLabelTop={OverlayLabelTop}

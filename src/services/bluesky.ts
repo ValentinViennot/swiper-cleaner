@@ -2,21 +2,33 @@ import { AtpAgent } from '@atproto/api';
 
 export class BlueSkyService {
   private agent: AtpAgent;
+  private currentCursor: string | undefined;
 
   constructor() {
     this.agent = new AtpAgent({ service: 'https://bsky.social' });
+    this.currentCursor = undefined;
   }
 
   async login(identifier: string, password: string) {
     await this.agent.login({ identifier, password });
   }
 
-  async getUserPosts() {
+  async getUserPosts(resetCursor = false) {
+    if (resetCursor) {
+      this.currentCursor = undefined;
+    }
+
     const response = await this.agent.getAuthorFeed({
       actor: this.agent.session?.did || '',
+      cursor: this.currentCursor,
+      limit: 30,
     });
-    // TODO: Handle pagination
-    return response.data.feed;
+
+    this.currentCursor = response.data.cursor;
+    return {
+      feed: response.data.feed,
+      hasMore: !!response.data.cursor,
+    };
   }
 
   async deletePost(uri: string) {
