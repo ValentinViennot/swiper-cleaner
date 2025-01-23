@@ -2,11 +2,10 @@ import type { AppBskyFeedPost } from '@atproto/api';
 import { AntDesign } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger } from 'react-native-reanimated';
 import { Swiper, type SwiperCardRefType } from 'rn-swiper-list';
-import { Linking } from 'react-native';
 
 import ActionButton from './components/ActionButton';
 import ConfigurationScreen from './components/ConfigurationScreen';
@@ -40,7 +39,6 @@ const App = () => {
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [processedPosts] = useState(new Set<string>());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hasMorePosts, setHasMorePosts] = useState(true);
   const [isAppReady, setIsAppReady] = useState(false);
@@ -234,44 +232,64 @@ const App = () => {
         console.log(`[Posts] Received ${userPostsResponse.length} raw posts, hasMore: ${hasMore}`);
         setHasMorePosts(hasMore);
 
-        const triagedUris = Array.from(triagedPosts.keys()).map(uri => uri.toLowerCase());
-        const filteredPosts = userPostsResponse.filter(post => {
-          const postUri = post.post.uri.toLowerCase();
-          const isTriaged = triagedUris.includes(postUri);
-          const isProcessed = processedPosts.has(postUri);
+        // Log current state of queues
+        console.log(`[Posts] Current deletion queue: ${deletionQueue.map(d => d.uri).join(', ')}`);
+        console.log(`[Posts] Current triaged posts: ${Array.from(triagedPosts.keys()).join(', ')}`);
 
-          if (isTriaged || isProcessed) {
-            console.log('[Posts] Filtering out triaged/processed post:', postUri);
-            return false;
-          }
-          post.isRepost = post.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
-          if (!showReposts && post.isRepost) {
-            console.log('[Posts] Filtering out repost:', postUri);
-            return false;
-          }
-          const type = (post.post.record as { $type: string }).$type;
-          return type === 'app.bsky.feed.post';
-        });
+        // Create a Set of all URIs we want to filter out (both triaged and queued for deletion)
+        const filteredUris = new Set(
+          [
+            ...Array.from(triagedPosts.keys()),
+            ...deletionQueue.map(item => item.uri),
+            ...posts.map(post => post.cardUri), // Also filter out posts currently in the stack
+          ].map(uri => uri.toLowerCase()),
+        );
 
-        const formattedPosts = filteredPosts.map(post => ({
-          ...post.post,
-          record: post.post.record as AppBskyFeedPost.Record,
-          repostUri: !!post.isRepost ? post.post.viewer?.repost : undefined,
-          isRepost: !!post.isRepost,
-        }));
+        console.log(`[Posts] Filtering out ${filteredUris.size} URIs`);
 
-        console.log(`[Posts] Loaded ${formattedPosts.length} posts into state`);
-        console.log(JSON.stringify(formattedPosts, null, 2));
+        const filteredPosts = userPostsResponse
+          .map(post => ({
+            ...post.post,
+            isRepost: post.reason?.$type === 'app.bsky.feed.defs#reasonRepost',
+          }))
+          .map(post => ({
+            ...post,
+            type: (post.record as { $type: string }).$type,
+            record: post.record as AppBskyFeedPost.Record,
+            cardUri: (post.isRepost ? post.viewer!.repost! : post.uri).toLowerCase(),
+          }))
+          .filter(post => {
+            const shouldFilter =
+              filteredUris.has(post.cardUri) ||
+              (!showReposts && post.isRepost) ||
+              post.type !== 'app.bsky.feed.post';
+
+            if (shouldFilter) {
+              console.log(
+                `[Posts] Filtering out post: ${post.cardUri} (${
+                  filteredUris.has(post.cardUri)
+                    ? 'already processed'
+                    : !showReposts && post.isRepost
+                      ? 'repost filtered'
+                      : 'not a post'
+                })`,
+              );
+              return false;
+            }
+            return true;
+          });
+
+        console.log(`[Posts] Loaded ${filteredPosts.length} posts into state`);
         setIsInitialized(true);
 
-        if (formattedPosts.length === 0 && !hasMore) {
-          console.log('[Posts] No posts remaining and no more to load, marking as complete');
+        if (filteredPosts.length === 0 && !hasMore) {
+          console.log('[Posts] No posts remaining after filtering, marking as complete');
           setIsComplete(true);
           return false;
-        } else {
-          setPosts(prev => (resetCursor ? formattedPosts : [...prev, ...formattedPosts]));
-          return true;
         }
+
+        setPosts(prev => (resetCursor ? filteredPosts : [...prev, ...filteredPosts]));
+        return true;
       } catch (error) {
         console.error('[Posts] Error loading posts:', error);
         await clearCredentials();
@@ -288,13 +306,13 @@ const App = () => {
       isLoggingIn,
       showReposts,
       triagedPosts,
-      processedPosts,
+      deletionQueue,
       clearCredentials,
     ],
   );
 
   const renderCard = useCallback(
-    (postData: PostData) => <MemoizedCard postData={postData} isRepost={!!postData.repostUri} />,
+    (postData: PostData) => <MemoizedCard postData={postData} isRepost={!!postData.isRepost} />,
     [],
   );
 
@@ -321,10 +339,7 @@ const App = () => {
 
   const handleSwipe = useCallback(
     async (direction: string, cardIndex: number) => {
-      console.log(`[Swipe] Handling swipe ${direction} for card ${cardIndex}`, {
-        postsLength: posts.length,
-        post: posts[cardIndex],
-      });
+      console.log(`[Swipe] Handling swipe ${direction} for card ${cardIndex}`);
 
       if (!posts.length) {
         console.log('[Swipe] No posts available');
@@ -332,8 +347,6 @@ const App = () => {
       }
 
       await swipeMutex.current.acquire();
-      let postUri = '';
-
       try {
         const post = posts[cardIndex];
         if (!post) {
@@ -341,8 +354,7 @@ const App = () => {
           throw new Error('Invalid card index');
         }
 
-        postUri = post.uri.toLowerCase();
-        if (!postUri) {
+        if (!post.cardUri) {
           console.log('[Swipe] Post has no URI:', post);
           throw new Error('Invalid post URI (no URI)');
         }
@@ -351,11 +363,9 @@ const App = () => {
           case 'left':
             await handleDeleteSwipe(post);
             break;
-          case 'right':
           case 'up':
-            if (
-              deletionQueue.find(item => item.uri === post.uri && (!item.isRepost || post.isRepost))
-            ) {
+          case 'right':
+            if (deletionQueue.find(item => item.uri === post.cardUri)) {
               Alert.alert(
                 `Cannot ${direction === 'right' ? 'keep' : 'repost'} this post`,
                 'This post is already queued for deletion. Please use "Reset Triaged Posts" in the configuration to undo this.',
@@ -363,63 +373,55 @@ const App = () => {
               );
               break;
             }
-            await handleKeepSwipe(postUri, direction === 'up' ? post.cid : undefined);
+            await handleKeepSwipe(post.cardUri, direction === 'up' ? post.cid : undefined);
             break;
           case 'down':
             handleSnoozeSwipe(post);
             break;
         }
-        processedPosts.add(postUri);
       } catch (error) {
         console.error('[Swipe] Error processing swipe:', error);
-        if (postUri) {
-          processedPosts.delete(postUri);
-        }
       } finally {
         swipeMutex.current.release();
       }
     },
-    [posts, addTriagedPost, processedPosts],
+    [posts],
   );
 
-  const handleDeleteSwipe = async (post: PostData) => {
-    console.log('[Swipe] Adding post to deletion queue:', {
-      uri: post.uri,
-      isRepost: !!post.isRepost,
-    });
-    setDeletionQueue(prev => {
-      const existingIndex = prev.findIndex(item => item.uri === post.uri);
-      if (existingIndex >= 0) {
-        if (prev[existingIndex]!.isRepost && !post.reason) {
-          const updated = [...prev];
-          updated[existingIndex] = { uri: post.uri, isRepost: false };
-          return updated;
+  const handleDeleteSwipe = useCallback(
+    async (post: PostData) => {
+      console.log('[Delete] Adding post to deletion queue:', post.cardUri);
+      setDeletionQueue(prev => {
+        const existingIndex = prev.findIndex(item => item.uri === post.cardUri);
+        if (existingIndex >= 0) {
+          return prev;
         }
-        return prev;
+        return [...prev, { uri: post.cardUri, isRepost: !!post.isRepost }];
+      });
+    },
+    [setDeletionQueue],
+  );
+
+  const handleKeepSwipe = useCallback(
+    async (postUri: string, repostCid?: string) => {
+      if (repostCid) {
+        console.log('[Swipe] Reposting post:', postUri);
+        await blueskyService.repost(postUri, repostCid);
+      } else {
+        console.log('[Swipe] Keeping post:', postUri);
       }
-      return [
-        ...prev,
-        post.repostUri
-          ? { uri: post.repostUri, isRepost: true }
-          : { uri: post.uri, isRepost: false },
-      ];
-    });
-  };
+      await addTriagedPost(postUri);
+    },
+    [addTriagedPost],
+  );
 
-  const handleKeepSwipe = async (postUri: string, repostCid?: string) => {
-    if (repostCid) {
-      console.log('[Swipe] Reposting post:', postUri);
-      await blueskyService.repost(postUri, repostCid);
-    } else {
-      console.log('[Swipe] Keeping post:', postUri);
-    }
-    await addTriagedPost(postUri);
-  };
-
-  const handleSnoozeSwipe = (post: PostData) => {
-    console.log('[Swipe] Snoozing post:', post.uri);
-    setPosts(prevPosts => [...prevPosts, post]);
-  };
+  const handleSnoozeSwipe = useCallback(
+    (post: PostData) => {
+      console.log('[Swipe] Snoozing post:', post.uri);
+      setPosts(prevPosts => [...prevPosts, post]);
+    },
+    [setPosts],
+  );
 
   const removeFromTriaged = async (uri: string) => {
     console.log(`[Storage] Removing post from triage: ${uri}`);
@@ -430,7 +432,6 @@ const App = () => {
       const updatedPosts = new Map(triagedPosts);
       updatedPosts.delete(normalizedUri);
       setTriagedPosts(updatedPosts);
-      processedPosts.delete(normalizedUri);
       console.log('[Storage] Successfully removed post from triage');
     } catch (error) {
       console.error('[Storage] Error removing post from triage:', error);
@@ -440,10 +441,10 @@ const App = () => {
   const rewindToPreviousPost = useCallback(async () => {
     if (currentIndex > 0) {
       const rewindedPost = posts[currentIndex - 1];
-      if (rewindedPost?.uri) {
-        console.log('[Button] Removing post from queues:', rewindedPost.uri);
-        setDeletionQueue(prev => prev.filter(item => item.uri !== rewindedPost.uri));
-        await removeFromTriaged(rewindedPost.uri);
+      if (rewindedPost) {
+        console.log('[Button] Removing post from queues:', rewindedPost.cardUri);
+        setDeletionQueue(prev => prev.filter(item => item.uri !== rewindedPost.cardUri));
+        await removeFromTriaged(rewindedPost.cardUri);
       }
       ref.current?.swipeBack();
     }
@@ -505,7 +506,6 @@ const App = () => {
 
       console.log('[Reset] Clearing application state');
       setTriagedPosts(new Map());
-      processedPosts.clear();
       setPosts([]);
       setDeletionQueue([]);
       setCurrentIndex(0);

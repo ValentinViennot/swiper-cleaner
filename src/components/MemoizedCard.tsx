@@ -45,8 +45,6 @@ const Card = ({ postData, isRepost }: CardProps) => {
   );
 
   const getEmbeddedMedia = useCallback((embed: unknown): MediaEmbed[] | null => {
-    console.log('[Embed] Post embed data:', JSON.stringify(embed, null, 2));
-
     if (!embed) return null;
 
     switch ((embed as { $type: string }).$type) {
