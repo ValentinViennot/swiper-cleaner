@@ -373,9 +373,7 @@ const App = () => {
       <View style={styles.statsContainer}>
         <Text style={styles.statText}>💬 {postData.replyCount}</Text>
         <Text style={styles.statText}>🔁 {postData.repostCount}</Text>
-        <Text style={(postData.likeCount ?? 0 > 0) ? styles.statText : styles.hiddenStatText}>
-          ❤️ {postData.likeCount}
-        </Text>
+        <Text style={styles.statText}>❤️ {postData.likeCount}</Text>
       </View>
     ),
     [],
