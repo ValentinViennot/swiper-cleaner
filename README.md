@@ -1,75 +1,88 @@
 # Swiper Cleaner
 
-A React Native project built with Expo that enables swipe interactions (left, right, up, down) on a list of images. This project uses Dev Containers to provide a consistent development environment for React Native, including Android tooling and Watchman.
-
-## Table of Contents
-
-1. [Features](#features)
-2. [Prerequisites](#prerequisites)
-3. [Installation and Setup](#installation-and-setup)
-4. [Running the App](#running-the-app)
-5. [Using the Dev Container](#using-the-dev-container)
-6. [Project Structure](#project-structure)
-7. [License](#license)
+A React Native mobile app that helps BlueSky users efficiently manage their posts and reposts through a Tinder-like swiping interface.
+Built with Expo, this app enables quick review and cleanup of your BlueSky content.
 
 ## Features
 
-- Swipeable card list built on React Native & Expo.
-- Customizable swipe gestures (up, down, left, right).
-- Visual overlays for diverse swipe directions.
-- Ready-to-use Dev Container for local development.
+- **Secure Authentication**: Direct connection to BlueSky using app passwords
+- **Intuitive Swipe Controls**:
+  - 👈 Left: Delete post/repost
+  - 👉 Right: Keep post (no action)
+  - 👆 Up: Repost now
+  - 👋 Down: Snooze (move to end of queue)
+- **Smart Review System**:
+  - Configurable review intervals
+  - Option to include/exclude reposts
+  - Progress tracking across sessions
+- **Privacy-Focused**:
+  - No backend server
+  - Direct API integration
+  - Local storage only
+- **Developer-Friendly**:
+  - Ready-to-use Dev Container
+  - Complete TypeScript support
+  - Hot reload enabled
 
 ## Prerequisites
 
 - Node.js (version 18 or higher recommended)
-- Expo CLI (optional but recommended for local testing):  
-  npm install -g expo-cli
 - Docker (if using the Dev Container)
+- BlueSky account and app password
 
 ## Running the App
 
-1. Start the Metro bundler:  
-   npm run start
+1. Install dependencies:
 
-2. To run on an Android device or emulator:  
-   npm run android
+   ```bash
+   yarn
+   ```
 
-3. To run on an iOS simulator (macOS only):  
-   npm run ios
+2. Start the Metro bundler:
 
-(You can also use expo start, expo start --android, etc., if you have Expo CLI installed globally.)
+   ```bash
+   yarn start
+   ```
+
+3. Run on your preferred platform:
+   ```bash
+   yarn run android  # For Android
+   yarn run ios      # For iOS (macOS only)
+   ```
 
 ## Using the Dev Container
 
-This project includes configuration for a Dev Container (in .devcontainer/) with the following features:
+This project includes a Dev Container configuration with:
 
 1. Android SDK and platform tools
 2. Node.js & Yarn
 3. Watchman for file watching
 
-Steps to use the Dev Container in VS Code:
+To use with VS Code:
 
-1. Install the “Dev Containers” extension.
-2. Open the folder in VS Code.
-3. When prompted, “Reopen in Container” to build and enter the Dev Container.
-4. The container initialization will install dependencies and set up your environment for development.
+1. Install the "Dev Containers" extension
+2. Open the folder in VS Code
+3. When prompted, select "Reopen in Container"
+4. Wait for container initialization and dependency installation
 
-Optional: You can connect a physical Android device over Wi-Fi by following the instructions in [.devcontainer/README.md](.devcontainer/README.md) (e.g., enabling TCP/IP with adb, identifying the device IP, executing adb connect, etc.).
+For physical device testing over WiFi, see [.devcontainer/README.md](.devcontainer/README.md).
 
 ## Project Structure
 
-- src/
-  - App.tsx – Main application component.
-  - components/ – Reusable UI components (e.g., ActionButton).
-- .devcontainer/
-  - Dockerfile, devcontainer.json – Container configuration.
-  - postCreateCommand.sh – Runs after the container is built, installing dependencies and tooling.
-- App.js – Entry point for the React Native application, importing the src/App.tsx file.
-- package.json – Node/Expo scripts and dependencies.
+- `src/`
+  - `App.tsx` – Main application component
+  - `components/` – UI components (MemoizedCard, ActionButton, etc.)
+  - `services/` – BlueSky API integration
+  - `styles/` – Styled components and theme
+  - `types/` – TypeScript definitions
+- `.devcontainer/` – Development environment configuration
+- `App.js` – Entry point
 
 ## License
 
 This project is provided under the MIT License. See [LICENSE](LICENSE) for details.
 
-Originally forked from [Skipperlla/rn-swiper-list](https://github.com/Skipperlla/rn-swiper-list).
-Dev container forked from [thyrlian/android-sdk-vnc](https://hub.docker.com/r/thyrlian/android-sdk-vnc/).
+## Acknowledgments
+
+- Originally forked from [Skipperlla/rn-swiper-list](https://github.com/Skipperlla/rn-swiper-list)
+- Dev container based on [thyrlian/android-sdk-vnc](https://hub.docker.com/r/thyrlian/android-sdk-vnc/)
