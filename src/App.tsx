@@ -3,57 +3,99 @@ import type { AppBskyEmbedImages, AppBskyFeedPost } from "@atproto/api";
 import type { PostView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
 import { AntDesign } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View, Image } from "react-native";
+import { StyleSheet, Text, View, Image, Switch, Dimensions } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Swiper, type SwiperCardRefType } from "rn-swiper-list";
 import ActionButton from "../components/ActionButton";
 import { BlueSkyService } from "./services/bluesky";
 
+const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
+
 const ICON_SIZE = 24;
 
 type PostData = PostView & { record: AppBskyFeedPost.Record };
 
+const springConfig = {
+  stiffness: 200,
+  damping: 15,
+  mass: 1,
+  overshootClamping: true,
+  restDisplacementThreshold: 0.01,
+  restSpeedThreshold: 0.01,
+};
+
 const App = () => {
   const [posts, setPosts] = useState<PostData[]>([]);
+  const [showReposts, setShowReposts] = useState(true);
   const ref = useRef<SwiperCardRefType>();
   const bluesky = useRef(new BlueSkyService());
 
+  const loadPosts = useCallback(async () => {
+    console.log("Starting to load posts...");
+    try {
+      console.log("Attempting login...");
+      await bluesky.current.login(
+        "username",
+        "password"
+      );
+      console.log("Login successful");
+
+      console.log("Fetching user posts...");
+      const userPostsResponse = await bluesky.current.getUserPosts();
+      console.log(`Received ${userPostsResponse.length} raw posts`);
+
+      const filteredPosts = userPostsResponse.filter((post) => {
+        if (
+          !showReposts &&
+          post.reason?.$type === "app.bsky.feed.defs#reasonRepost"
+        ) {
+          return false;
+        }
+        const type = (post.post.record as { $type: string }).$type;
+        console.log(`Post type: ${type}`);
+        return type === "app.bsky.feed.post";
+      });
+      console.log(`Filtered to ${filteredPosts.length} valid posts`);
+
+      const formattedPosts = filteredPosts.map((post) => ({
+        ...post.post,
+        record: post.post.record as AppBskyFeedPost.Record,
+      }));
+      console.log("Posts formatted successfully");
+
+      setPosts(formattedPosts);
+      console.log("Posts loaded into state");
+    } catch (error) {
+      console.error("Error loading posts:", error);
+    }
+  }, [showReposts]);
+
   useEffect(() => {
-    const loadPosts = async () => {
-      console.log("Starting to load posts...");
-      try {
-        console.log("Attempting login...");
-        await bluesky.current.login(
-          "username",
-          "password"
-        );
-        console.log("Login successful");
-
-        console.log("Fetching user posts...");
-        const userPostsResponse = await bluesky.current.getUserPosts();
-        console.log(`Received ${userPostsResponse.length} raw posts`);
-
-        const filteredPosts = userPostsResponse.filter((post) => {
-          const type = (post.post.record as { $type: string }).$type;
-          console.log(`Post type: ${type}`);
-          return type === "app.bsky.feed.post";
-        });
-        console.log(`Filtered to ${filteredPosts.length} valid posts`);
-
-        const formattedPosts = filteredPosts.map((post) => ({
-          ...post.post,
-          record: post.post.record as AppBskyFeedPost.Record,
-        }));
-        console.log("Posts formatted successfully");
-
-        setPosts(formattedPosts);
-        console.log("Posts loaded into state");
-      } catch (error) {
-        console.error("Error loading posts:", error);
-      }
-    };
     loadPosts();
-  }, []);
+  }, [loadPosts]);
+
+  const renderPostImage = useCallback((img: any, index: number) => (
+    <Image
+      key={index}
+      source={{ uri: img.thumb }}
+      style={[
+        styles.postImage,
+        {
+          aspectRatio:
+            (img.aspectRatio?.width ?? 1) /
+            (img.aspectRatio?.height ?? 1),
+        },
+      ]}
+    />
+  ), []);
+
+  const renderPostStats = useCallback((postData: PostData) => (
+    <View style={styles.statsContainer}>
+      <Text style={styles.statText}>💬 {postData.replyCount}</Text>
+      <Text style={styles.statText}>🔁 {postData.repostCount}</Text>
+      <Text style={styles.statText}>❤️ {postData.likeCount}</Text>
+    </View>
+  ), []);
 
   const renderCard = useCallback((postData: PostData) => {
     console.log(`Rendering card for post: ${postData.uri}`);
@@ -77,22 +119,7 @@ const App = () => {
 
           {postData.embed?.$type === "app.bsky.embed.images#view" && (
             <View style={styles.imageContainer}>
-              {(postData.embed as AppBskyEmbedImages.View).images.map(
-                (img, index) => (
-                  <Image
-                    key={index}
-                    source={{ uri: img.thumb }}
-                    style={[
-                      styles.postImage,
-                      {
-                        aspectRatio:
-                          (img.aspectRatio?.width ?? 1) /
-                          (img.aspectRatio?.height ?? 1),
-                      },
-                    ]}
-                  />
-                )
-              )}
+              {(postData.embed as AppBskyEmbedImages.View).images.map(renderPostImage)}
             </View>
           )}
 
@@ -100,173 +127,143 @@ const App = () => {
             <Text style={styles.dateText}>
               {new Date(postData.record.createdAt).toLocaleString()}
             </Text>
-            <View style={styles.statsContainer}>
-              <Text style={styles.statText}>💬 {postData.replyCount}</Text>
-              <Text style={styles.statText}>🔁 {postData.repostCount}</Text>
-              <Text style={styles.statText}>❤️ {postData.likeCount}</Text>
-            </View>
+            {renderPostStats(postData)}
           </View>
         </View>
       </View>
     );
-  }, []);
+  }, [renderPostImage, renderPostStats]);
 
-  const OverlayLabelRight = useCallback(() => {
-    return (
-      <View
-        style={[
-          styles.overlayLabelContainer,
-          {
-            backgroundColor: "green",
-          },
-        ]}
-      />
-    );
-  }, []);
-  const OverlayLabelLeft = useCallback(() => {
-    return (
-      <View
-        style={[
-          styles.overlayLabelContainer,
-          {
-            backgroundColor: "red",
-          },
-        ]}
-      />
-    );
-  }, []);
-  const OverlayLabelTop = useCallback(() => {
-    return (
-      <View
-        style={[
-          styles.overlayLabelContainer,
-          {
-            backgroundColor: "blue",
-          },
-        ]}
-      />
-    );
-  }, []);
-  const OverlayLabelBottom = useCallback(() => {
-    return (
-      <View
-        style={[
-          styles.overlayLabelContainer,
-          {
-            backgroundColor: "orange",
-          },
-        ]}
-      />
-    );
+  const createOverlayLabel = useCallback((text: string, color: string) => () => (
+    <View
+      style={[
+        styles.overlayLabelContainer,
+        {
+          backgroundColor: color,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+      ]}
+    >
+      <Text style={styles.overlayText}>{text}</Text>
+    </View>
+  ), []);
+
+  const OverlayLabelRight = createOverlayLabel("KEEP", "green");
+  const OverlayLabelLeft = createOverlayLabel("DELETE", "red");
+  const OverlayLabelTop = createOverlayLabel("REPOST", "blue");
+  const OverlayLabelBottom = createOverlayLabel("SNOOZE", "orange");
+
+  const handleSwipe = useCallback((direction: string, cardIndex: number) => {
+    const postUri = posts[cardIndex]?.uri;
+    console.log(`Swiped ${direction} on post ${postUri}`);
+    
+    switch(direction) {
+      case 'left':
+        bluesky.current.deletePost(postUri!);
+        break;
+      case 'right':
+        console.log("TODO: Keep post", postUri!);
+        break;
+      case 'up':
+        bluesky.current.repost(postUri!);
+        break;
+      case 'down':
+        console.log("TODO: Snooze post", postUri!);
+        break;
+    }
+  }, [posts]);
+
+  const handleButtonPress = useCallback((action: string) => {
+    console.log(`${action} button pressed`);
+    switch(action) {
+      case 'reload':
+        ref.current?.swipeBack();
+        break;
+      case 'delete':
+        ref.current?.swipeLeft();
+        break;
+      case 'snooze':
+        ref.current?.swipeBottom();
+        break;
+      case 'keep':
+        ref.current?.swipeTop();
+        break;
+      case 'like':
+        ref.current?.swipeRight();
+        break;
+    }
   }, []);
 
   return (
     <GestureHandlerRootView style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.toggleContainer}>
+          <Text style={styles.toggleLabel}>Show Reposts</Text>
+          <Switch
+            value={showReposts}
+            onValueChange={setShowReposts}
+            trackColor={{ false: "#767577", true: "#81b0ff" }}
+            thumbColor={showReposts ? "#2196F3" : "#f4f3f4"}
+          />
+        </View>
+      </View>
+
       <View style={styles.subContainer}>
         <Swiper
           ref={ref}
           cardStyle={styles.cardStyle}
           data={posts}
           renderCard={renderCard}
-          onSwipeLeft={(cardIndex) => {
-            console.log(`Swiped left on post ${posts[cardIndex]?.uri}`);
-            bluesky.current.deletePost(posts[cardIndex]?.uri!);
-          }}
-          onSwipeRight={(cardIndex) => {
-            console.log(`Swiped right on post ${posts[cardIndex]?.uri}`);
-            console.log("TODO: Keep post", posts[cardIndex]?.uri!);
-          }}
-          onSwipeTop={(cardIndex) => {
-            console.log(`Swiped up on post ${posts[cardIndex]?.uri}`);
-            bluesky.current.repost(posts[cardIndex]?.uri!);
-          }}
-          onSwipeBottom={(cardIndex) => {
-            console.log(`Swiped down on post ${posts[cardIndex]?.uri}`);
-            console.log("TODO: Snooze post", posts[cardIndex]?.uri!);
-          }}
+          onSwipeLeft={(cardIndex) => handleSwipe('left', cardIndex)}
+          onSwipeRight={(cardIndex) => handleSwipe('right', cardIndex)}
+          onSwipeTop={(cardIndex) => handleSwipe('up', cardIndex)}
+          onSwipeBottom={(cardIndex) => handleSwipe('down', cardIndex)}
           OverlayLabelRight={OverlayLabelRight}
           OverlayLabelLeft={OverlayLabelLeft}
           OverlayLabelTop={OverlayLabelTop}
           OverlayLabelBottom={OverlayLabelBottom}
-          // Add these spring configs for faster animations
-          swipeRightSpringConfig={{
-            stiffness: 200,
-            damping: 15,
-            mass: 1,
-            overshootClamping: true,
-            restDisplacementThreshold: 0.01,
-            restSpeedThreshold: 0.01,
-          }}
-          swipeLeftSpringConfig={{
-            stiffness: 200,
-            damping: 15,
-            mass: 1,
-            overshootClamping: true,
-            restDisplacementThreshold: 0.01,
-            restSpeedThreshold: 0.01,
-          }}
-          swipeTopSpringConfig={{
-            stiffness: 200,
-            damping: 15,
-            mass: 1,
-            overshootClamping: true,
-            restDisplacementThreshold: 0.01,
-            restSpeedThreshold: 0.01,
-          }}
-          swipeBottomSpringConfig={{
-            stiffness: 200,
-            damping: 15,
-            mass: 1,
-            overshootClamping: true,
-            restDisplacementThreshold: 0.01,
-            restSpeedThreshold: 0.01,
-          }}
+          swipeRightSpringConfig={springConfig}
+          swipeLeftSpringConfig={springConfig}
+          swipeTopSpringConfig={springConfig}
+          swipeBottomSpringConfig={springConfig}
+          inputOverlayLabelRightOpacityRange={[0, windowWidth / 2]}
+          outputOverlayLabelRightOpacityRange={[0, 1]}
+          inputOverlayLabelLeftOpacityRange={[0, -(windowWidth / 2)]}
+          outputOverlayLabelLeftOpacityRange={[0, 1]}
+          inputOverlayLabelTopOpacityRange={[0, -(windowHeight / 2)]}
+          outputOverlayLabelTopOpacityRange={[0, 1]}
         />
       </View>
 
       <View style={styles.buttonsContainer}>
         <ActionButton
           style={styles.button}
-          onTap={() => {
-            console.log("Reload button pressed");
-            ref.current?.swipeBack();
-          }}
+          onTap={() => handleButtonPress('reload')}
         >
           <AntDesign name="reload1" size={ICON_SIZE} color="white" />
         </ActionButton>
         <ActionButton
           style={styles.button}
-          onTap={() => {
-            console.log("Delete button pressed");
-            ref.current?.swipeLeft();
-          }}
+          onTap={() => handleButtonPress('delete')}
         >
           <AntDesign name="close" size={ICON_SIZE} color="white" />
         </ActionButton>
         <ActionButton
           style={styles.button}
-          onTap={() => {
-            console.log("Snooze button pressed");
-            ref.current?.swipeBottom();
-          }}
+          onTap={() => handleButtonPress('snooze')}
         >
           <AntDesign name="arrowdown" size={ICON_SIZE} color="white" />
         </ActionButton>
         <ActionButton
           style={styles.button}
-          onTap={() => {
-            console.log("Keep button pressed");
-            ref.current?.swipeTop();
-          }}
+          onTap={() => handleButtonPress('keep')}
         >
           <AntDesign name="arrowup" size={ICON_SIZE} color="white" />
         </ActionButton>
         <ActionButton
           style={styles.button}
-          onTap={() => {
-            console.log("Like button pressed");
-            ref.current?.swipeRight();
-          }}
+          onTap={() => handleButtonPress('like')}
         >
           <AntDesign name="heart" size={ICON_SIZE} color="white" />
         </ActionButton>
@@ -404,5 +401,26 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 15,
+  },
+  header: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    zIndex: 1,
+  },
+  toggleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  toggleLabel: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+  },
+  overlayText: {
+    color: 'white',
+    fontSize: 32,
+    fontWeight: 'bold',
+    letterSpacing: 2,
   },
 });
