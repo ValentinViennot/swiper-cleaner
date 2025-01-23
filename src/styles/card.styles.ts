@@ -126,4 +126,39 @@ export const cardStyles = StyleSheet.create({
   linkText: {
     textDecorationLine: 'none',
   },
+  quoteContainer: {
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginVertical: 8,
+    overflow: 'hidden',
+    padding: 12,
+  },
+  quoteAuthorContainer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  quoteAuthorAvatar: {
+    borderRadius: 16,
+    height: 32,
+    width: 32,
+  },
+  quoteAuthorInfo: {
+    marginLeft: 8,
+  },
+  quoteDisplayName: {
+    color: colors.text.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  quoteHandle: {
+    color: colors.text.secondary,
+    fontSize: 12,
+  },
+  quoteText: {
+    color: colors.text.dark,
+    fontSize: 14,
+    lineHeight: 18,
+  },
 });

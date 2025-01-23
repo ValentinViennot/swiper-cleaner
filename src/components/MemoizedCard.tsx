@@ -83,6 +83,56 @@ const Card = ({ postData, isRepost }: CardProps) => {
     [postData.author.handle],
   );
 
+  const renderQuotedPost = useCallback(
+    (embed: any) => {
+      if (embed?.$type !== 'app.bsky.embed.record#view' || !embed?.record) return null;
+      const quotedPost = embed.record;
+
+      return (
+        <View style={cardStyles.quoteContainer}>
+          <View style={cardStyles.quoteAuthorContainer}>
+            <Image
+              source={{ uri: quotedPost.author.avatar }}
+              style={cardStyles.quoteAuthorAvatar}
+            />
+            <View style={cardStyles.quoteAuthorInfo}>
+              <Text style={cardStyles.quoteDisplayName}>{quotedPost.author.displayName}</Text>
+              <Text style={cardStyles.quoteHandle}>@{quotedPost.author.handle}</Text>
+            </View>
+          </View>
+          <Text style={cardStyles.quoteText}>{quotedPost.value.text}</Text>
+          {quotedPost.embeds?.[0]?.$type === 'app.bsky.embed.images#view' && (
+            <View style={cardStyles.imageContainer}>
+              {quotedPost.embeds[0].images.map((img: any, index: number) =>
+                renderPostImage(
+                  {
+                    thumb: img.thumb,
+                    aspectRatio: img.aspectRatio,
+                    isVideo: false,
+                  },
+                  index,
+                ),
+              )}
+            </View>
+          )}
+          {quotedPost.embeds?.[0]?.$type === 'app.bsky.embed.video#view' && (
+            <View style={cardStyles.imageContainer}>
+              {renderPostImage(
+                {
+                  thumb: quotedPost.embeds[0].thumbnail,
+                  aspectRatio: quotedPost.embeds[0].aspectRatio,
+                  isVideo: true,
+                },
+                0,
+              )}
+            </View>
+          )}
+        </View>
+      );
+    },
+    [renderPostImage],
+  );
+
   return (
     <View style={cardStyles.renderCardContainer}>
       {isRepost && <Text style={[cardStyles.repostIndicator, { opacity: 1 }]}>🔄 Repost</Text>}
@@ -100,6 +150,8 @@ const Card = ({ postData, isRepost }: CardProps) => {
         {embeddedMedia && (
           <View style={cardStyles.imageContainer}>{embeddedMedia.map(renderPostImage)}</View>
         )}
+
+        {postData.embed?.$type === 'app.bsky.embed.record#view' && renderQuotedPost(postData.embed)}
 
         <View style={cardStyles.postFooter}>
           <TouchableOpacity onPress={() => openInBlueSky(postData.uri)}>
