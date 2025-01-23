@@ -260,10 +260,12 @@ const App = () => {
         const formattedPosts = filteredPosts.map(post => ({
           ...post.post,
           record: post.post.record as AppBskyFeedPost.Record,
+          repostUri: !!post.isRepost ? post.post.viewer?.repost : undefined,
           isRepost: !!post.isRepost,
         }));
 
         console.log(`[Posts] Loaded ${formattedPosts.length} posts into state`);
+        console.log(JSON.stringify(formattedPosts, null, 2));
         setIsInitialized(true);
 
         if (formattedPosts.length === 0 && !hasMore) {
@@ -328,7 +330,7 @@ const App = () => {
         postData={postData}
         renderPostImage={renderPostImage}
         renderPostStats={renderPostStats}
-        isRepost={postData.isRepost ?? false}
+        isRepost={!!postData.repostUri}
       />
     ),
     [renderPostImage, renderPostStats],
@@ -383,60 +385,29 @@ const App = () => {
           throw new Error('Invalid post URI (no URI)');
         }
 
-        if (processedPosts.has(postUri)) {
-          // Only allow processing if we're upgrading from repost to original post deletion
-          const existingDeletion = deletionQueue.find(item => item.uri === post.uri);
-          if (!existingDeletion || !existingDeletion.isRepost || post.isRepost) {
-            console.log('[Swipe] Post already processed, skipping:', postUri);
-            return;
-          }
-          console.log('[Swipe] Upgrading repost deletion to original post deletion:', postUri);
-        }
-
         switch (direction) {
           case 'left':
-            console.log('[Swipe] Adding post to deletion queue:', {
-              uri: postUri,
-              isRepost: !!post.isRepost,
-            });
-            setDeletionQueue(prev => {
-              const existingIndex = prev.findIndex(item => item.uri === post.uri);
-              if (existingIndex >= 0) {
-                // If already queued, only upgrade from repost to post deletion
-                if (prev[existingIndex]!.isRepost && !post.reason) {
-                  const updated = [...prev];
-                  updated[existingIndex] = { uri: post.uri, isRepost: false };
-                  return updated;
-                }
-                return prev;
-              }
-              // Add new deletion
-              return [
-                ...prev,
-                {
-                  uri: post.uri,
-                  isRepost: !!post.isRepost,
-                },
-              ];
-            });
-            processedPosts.add(postUri);
+            await handleDeleteSwipe(post);
             break;
           case 'right':
-            console.log('[Swipe] Adding post to triage (keep):', postUri);
-            await addTriagedPost(postUri);
-            processedPosts.add(postUri);
-            break;
           case 'up':
-            console.log('[Swipe] Reposting and triaging:', postUri);
-            await blueskyService.repost(postUri, post.cid);
-            await addTriagedPost(postUri);
-            processedPosts.add(postUri);
+            if (
+              deletionQueue.find(item => item.uri === post.uri && (!item.isRepost || post.isRepost))
+            ) {
+              Alert.alert(
+                `Cannot ${direction === 'right' ? 'keep' : 'repost'} this post`,
+                'This post is already queued for deletion. Please use "Reset Triaged Posts" in the configuration to undo this.',
+                [{ text: 'OK' }],
+              );
+              break;
+            }
+            await handleKeepSwipe(postUri, direction === 'up' ? post.cid : undefined);
             break;
           case 'down':
-            console.log('[Swipe] Snoozing post:', postUri);
-            setPosts(prevPosts => [...prevPosts, post]);
+            handleSnoozeSwipe(post);
             break;
         }
+        processedPosts.add(postUri);
       } catch (error) {
         console.error('[Swipe] Error processing swipe:', error);
         if (postUri) {
@@ -448,6 +419,45 @@ const App = () => {
     },
     [posts, addTriagedPost, processedPosts],
   );
+
+  const handleDeleteSwipe = async (post: PostData) => {
+    console.log('[Swipe] Adding post to deletion queue:', {
+      uri: post.uri,
+      isRepost: !!post.isRepost,
+    });
+    setDeletionQueue(prev => {
+      const existingIndex = prev.findIndex(item => item.uri === post.uri);
+      if (existingIndex >= 0) {
+        if (prev[existingIndex]!.isRepost && !post.reason) {
+          const updated = [...prev];
+          updated[existingIndex] = { uri: post.uri, isRepost: false };
+          return updated;
+        }
+        return prev;
+      }
+      return [
+        ...prev,
+        post.repostUri
+          ? { uri: post.repostUri, isRepost: true }
+          : { uri: post.uri, isRepost: false },
+      ];
+    });
+  };
+
+  const handleKeepSwipe = async (postUri: string, repostCid?: string) => {
+    if (repostCid) {
+      console.log('[Swipe] Reposting post:', postUri);
+      await blueskyService.repost(postUri, repostCid);
+    } else {
+      console.log('[Swipe] Keeping post:', postUri);
+    }
+    await addTriagedPost(postUri);
+  };
+
+  const handleSnoozeSwipe = (post: PostData) => {
+    console.log('[Swipe] Snoozing post:', post.uri);
+    setPosts(prevPosts => [...prevPosts, post]);
+  };
 
   const removeFromTriaged = async (uri: string) => {
     console.log(`[Storage] Removing post from triage: ${uri}`);
@@ -503,10 +513,24 @@ const App = () => {
 
   const processDeletionQueue = useCallback(async () => {
     console.log('[App] Processing deletion queue');
-    for (const item of deletionQueue) {
-      await blueskyService.deletePost(item.uri, item.isRepost);
+    try {
+      const results = await blueskyService.batchDelete(deletionQueue);
+      const failures = results.filter(r => !r.success);
+
+      if (failures.length > 0) {
+        console.warn('[App] Some deletions failed:', failures);
+        Alert.alert(
+          'Some deletions failed',
+          `${failures.length} items could not be deleted. They will remain in the queue.`,
+        );
+        setDeletionQueue(prev => prev.filter(item => failures.some(f => f.uri === item.uri)));
+      } else {
+        setDeletionQueue([]);
+      }
+    } catch (error) {
+      console.error('[App] Batch deletion error:', error);
+      Alert.alert('Error', 'Failed to process deletion queue. Please try again.');
     }
-    setDeletionQueue([]);
   }, [deletionQueue]);
 
   const handleReset = useCallback(async () => {
@@ -607,15 +631,27 @@ const App = () => {
         </View>
       ) : isComplete ? (
         <View style={styles.completeContainer}>
-          <Text style={styles.completeText}>All done! 🎉</Text>
-          <Text style={styles.completeSubtext}>
-            {reviewInterval > 0
-              ? `Come back in ${reviewInterval} days to review more posts`
-              : 'No more posts to review'}
-          </Text>
-          <TouchableOpacity style={styles.refreshButton} onPress={() => loadPosts(true)}>
-            <Text style={styles.refreshButtonText}>Check Again</Text>
-          </TouchableOpacity>
+          {deletionQueue.length > 0 ? (
+            <>
+              <Text style={styles.completeText}>Almost done!</Text>
+              <Text style={styles.completeSubtext}>
+                Don't forget to confirm deletion of {deletionQueue.length} post
+                {deletionQueue.length !== 1 ? 's' : ''}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.completeText}>All done! 🎉</Text>
+              <Text style={styles.completeSubtext}>
+                {reviewInterval > 0
+                  ? `Come back in ${reviewInterval} days to review more posts`
+                  : 'No more posts to review'}
+              </Text>
+              <TouchableOpacity style={styles.refreshButton} onPress={() => loadPosts(true)}>
+                <Text style={styles.refreshButtonText}>Check Again</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       ) : (
         <>
