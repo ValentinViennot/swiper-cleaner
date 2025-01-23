@@ -236,6 +236,13 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '400',
   },
+  repostIndicator: {
+    color: colors.text.tertiary,
+    fontSize: 13,
+    position: 'absolute',
+    right: 16,
+    top: 16,
+  },
 });
 
 export { windowWidth, windowHeight };

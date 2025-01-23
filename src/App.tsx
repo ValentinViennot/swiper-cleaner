@@ -40,7 +40,7 @@ const App = () => {
   });
   const [showConfig, setShowConfig] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [deletionQueue, setDeletionQueue] = useState<string[]>([]);
+  const [deletionQueue, setDeletionQueue] = useState<Array<{ uri: string; isRepost: boolean }>>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -248,7 +248,8 @@ const App = () => {
             console.log('[Posts] Filtering out triaged/processed post:', postUri);
             return false;
           }
-          if (!showReposts && post.reason?.$type === 'app.bsky.feed.defs#reasonRepost') {
+          post.isRepost = post.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
+          if (!showReposts && post.isRepost) {
             console.log('[Posts] Filtering out repost:', postUri);
             return false;
           }
@@ -259,6 +260,7 @@ const App = () => {
         const formattedPosts = filteredPosts.map(post => ({
           ...post.post,
           record: post.post.record as AppBskyFeedPost.Record,
+          isRepost: !!post.isRepost,
         }));
 
         console.log(`[Posts] Loaded ${formattedPosts.length} posts into state`);
@@ -326,6 +328,7 @@ const App = () => {
         postData={postData}
         renderPostImage={renderPostImage}
         renderPostStats={renderPostStats}
+        isRepost={postData.isRepost ?? false}
       />
     ),
     [renderPostImage, renderPostStats],
@@ -381,14 +384,41 @@ const App = () => {
         }
 
         if (processedPosts.has(postUri)) {
-          console.log('[Swipe] Post already processed, skipping:', postUri);
-          return;
+          // Only allow processing if we're upgrading from repost to original post deletion
+          const existingDeletion = deletionQueue.find(item => item.uri === post.uri);
+          if (!existingDeletion || !existingDeletion.isRepost || post.isRepost) {
+            console.log('[Swipe] Post already processed, skipping:', postUri);
+            return;
+          }
+          console.log('[Swipe] Upgrading repost deletion to original post deletion:', postUri);
         }
 
         switch (direction) {
           case 'left':
-            console.log('[Swipe] Adding post to deletion queue:', postUri);
-            setDeletionQueue(prev => [...prev, postUri]);
+            console.log('[Swipe] Adding post to deletion queue:', {
+              uri: postUri,
+              isRepost: !!post.isRepost,
+            });
+            setDeletionQueue(prev => {
+              const existingIndex = prev.findIndex(item => item.uri === post.uri);
+              if (existingIndex >= 0) {
+                // If already queued, only upgrade from repost to post deletion
+                if (prev[existingIndex]!.isRepost && !post.reason) {
+                  const updated = [...prev];
+                  updated[existingIndex] = { uri: post.uri, isRepost: false };
+                  return updated;
+                }
+                return prev;
+              }
+              // Add new deletion
+              return [
+                ...prev,
+                {
+                  uri: post.uri,
+                  isRepost: !!post.isRepost,
+                },
+              ];
+            });
             processedPosts.add(postUri);
             break;
           case 'right':
@@ -440,7 +470,7 @@ const App = () => {
       const rewindedPost = posts[currentIndex - 1];
       if (rewindedPost?.uri) {
         console.log('[Button] Removing post from queues:', rewindedPost.uri);
-        setDeletionQueue(prev => prev.filter(uri => uri !== rewindedPost.uri));
+        setDeletionQueue(prev => prev.filter(item => item.uri !== rewindedPost.uri));
         await removeFromTriaged(rewindedPost.uri);
       }
       ref.current?.swipeBack();
@@ -472,20 +502,12 @@ const App = () => {
   );
 
   const processDeletionQueue = useCallback(async () => {
-    console.log(`[Delete] Processing deletion queue of ${deletionQueue.length} posts`);
-    try {
-      for (const uri of deletionQueue) {
-        console.log('[Delete] Deleting post:', uri);
-        await blueskyService.deletePost(uri);
-        await addTriagedPost(uri);
-      }
-      console.log('[Delete] Successfully processed deletion queue');
-      setDeletionQueue([]);
-    } catch (error) {
-      console.error('[Delete] Error processing deletion queue:', error);
-      Alert.alert('Error', 'Failed to delete some posts. Please try again.');
+    console.log('[App] Processing deletion queue');
+    for (const item of deletionQueue) {
+      await blueskyService.deletePost(item.uri, item.isRepost);
     }
-  }, [deletionQueue, addTriagedPost]);
+    setDeletionQueue([]);
+  }, [deletionQueue]);
 
   const handleReset = useCallback(async () => {
     console.log('[Reset] Starting reset process');
@@ -666,7 +688,7 @@ const App = () => {
 
       {deletionQueue.length > 0 && (
         <TouchableOpacity style={styles.confirmButton} onPress={processDeletionQueue}>
-          <Text style={styles.confirmButtonText}>Delete ({deletionQueue.length})</Text>
+          <Text style={styles.confirmButtonText}>DELETE ({deletionQueue.length})</Text>
         </TouchableOpacity>
       )}
     </GestureHandlerRootView>

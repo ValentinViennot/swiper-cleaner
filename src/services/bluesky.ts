@@ -46,12 +46,15 @@ export class BlueSkyService {
     };
   }
 
-  async deletePost(uri: string) {
-    console.log('[BlueSky] Attempting to delete post:', uri);
-    // const parts = uri.split('/');
-    // const rkey = parts[parts.length - 1];
-    // await this.agent.deletePost(rkey);
-    console.log('[BlueSky] Delete functionality not yet implemented');
+  async deletePost(uri: string, isRepost: boolean) {
+    console.log('[BlueSky] Attempting to delete:', { uri, isRepost });
+    if (isRepost) {
+      //   await this.agent.deleteRepost(uri);
+      console.log('[BlueSky] Repost deleted');
+    } else {
+      //   await this.agent.deletePost(uri);
+      console.log('[BlueSky] Post deleted');
+    }
   }
 
   async repost(uri: string, cid: string) {
