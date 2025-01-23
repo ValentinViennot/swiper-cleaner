@@ -41,7 +41,7 @@ export const styles = StyleSheet.create({
   },
   buttonsContainer: {
     alignItems: 'center',
-    bottom: 34,
+    bottom: 42,
     flexDirection: 'row',
     gap: 24,
     justifyContent: 'center',

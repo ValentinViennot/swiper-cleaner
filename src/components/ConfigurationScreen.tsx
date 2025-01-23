@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Switch, Linking } from 'react-native';
 import { styles, colors } from '../styles/config.styles';
 
 type ConfigurationScreenProps = {
@@ -137,6 +137,23 @@ const ConfigurationScreen = ({
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
         )}
+      </View>
+
+      <View style={styles.footer}>
+        <TouchableOpacity onPress={() => Linking.openURL('https://unstaticlabs.com/privacy/')}>
+          <Text style={styles.footerLink}>Privacy</Text>
+        </TouchableOpacity>
+        <Text style={styles.footerDivider}>•</Text>
+        <TouchableOpacity
+          onPress={() =>
+            Linking.openURL('https://github.com/unstaticlabs/swiper-cleaner/blob/main/LICENSE')
+          }>
+          <Text style={styles.footerLink}>Open Source (MIT)</Text>
+        </TouchableOpacity>
+        <Text style={styles.footerDivider}>•</Text>
+        <TouchableOpacity onPress={() => Linking.openURL('mailto:swipercleaner@unstaticlabs.com')}>
+          <Text style={styles.footerLink}>Support</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
