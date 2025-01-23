@@ -54,9 +54,9 @@ export class BlueSkyService {
     console.log('[BlueSky] Delete functionality not yet implemented');
   }
 
-  async repost(uri: string) {
+  async repost(uri: string, cid: string) {
     console.log('[BlueSky] Attempting to repost:', uri);
-    // await this.agent.repost(uri);
-    console.log('[BlueSky] Repost functionality not yet implemented');
+    await this.agent.repost(uri, cid);
+    console.log('[BlueSky] Repost successful');
   }
 }

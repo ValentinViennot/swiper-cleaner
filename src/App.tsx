@@ -398,7 +398,7 @@ const App = () => {
             break;
           case 'up':
             console.log('[Swipe] Reposting and triaging:', postUri);
-            await blueskyService.repost(postUri);
+            await blueskyService.repost(postUri, post.cid);
             await addTriagedPost(postUri);
             processedPosts.add(postUri);
             break;
