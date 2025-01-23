@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-na
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger } from 'react-native-reanimated';
 import { Swiper, type SwiperCardRefType } from 'rn-swiper-list';
+import { Linking } from 'react-native';
 
 import ActionButton from './components/ActionButton';
 import ConfigurationScreen from './components/ConfigurationScreen';
@@ -683,9 +684,19 @@ const App = () => {
         />
       )}
 
-      {deletionQueue.length > 0 && (
+      {deletionQueue.length > 0 ? (
         <TouchableOpacity style={styles.confirmButton} onPress={processDeletionQueue}>
           <Text style={styles.confirmButtonText}>DELETE ({deletionQueue.length})</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={styles.donateButton}
+          onPress={() =>
+            Linking.openURL(
+              'https://polar.sh/smashchats/products/85592438-13d5-4310-ab04-bc77aa9adc69',
+            )
+          }>
+          <Text style={styles.donateButtonText}>❤️ Donate</Text>
         </TouchableOpacity>
       )}
     </GestureHandlerRootView>

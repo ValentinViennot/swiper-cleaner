@@ -156,6 +156,31 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '400',
   },
+  donateButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    position: 'absolute',
+    left: 16,
+    top: 50,
+    zIndex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  donateButtonText: {
+    color: colors.text.dark,
+    fontSize: 12,
+    fontWeight: '500',
+  },
 });
 
 export { windowWidth, windowHeight };
