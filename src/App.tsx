@@ -385,25 +385,26 @@ const App = () => {
           return;
         }
 
-        processedPosts.add(postUri);
-
         switch (direction) {
           case 'left':
             console.log('[Swipe] Adding post to deletion queue:', postUri);
             setDeletionQueue(prev => [...prev, postUri]);
+            processedPosts.add(postUri);
             break;
           case 'right':
             console.log('[Swipe] Adding post to triage (keep):', postUri);
             await addTriagedPost(postUri);
+            processedPosts.add(postUri);
             break;
           case 'up':
             console.log('[Swipe] Reposting and triaging:', postUri);
             await blueskyService.repost(postUri);
             await addTriagedPost(postUri);
+            processedPosts.add(postUri);
             break;
           case 'down':
             console.log('[Swipe] Snoozing post:', postUri);
-            await addTriagedPost(postUri);
+            setPosts(prevPosts => [...prevPosts, post]);
             break;
         }
       } catch (error) {
@@ -518,7 +519,7 @@ const App = () => {
 
   const handleSwipedAll = useCallback(async () => {
     console.log('[Swiper] Reached end of stack, checking for more posts');
-    if (!hasMorePosts) {
+    if (!hasMorePosts && currentIndex >= posts.length) {
       console.log('[Swiper] No more posts available');
       setIsComplete(true);
       return;
