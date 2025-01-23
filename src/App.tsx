@@ -16,7 +16,6 @@ import { styles, windowHeight, windowWidth } from './styles/app.styles';
 import type { PostData, TriagedPostsMap } from './types/post';
 import { Mutex } from './utils/Mutex';
 
-console.log('[App] Configuring Reanimated logger');
 configureReanimatedLogger({
   strict: false,
 });
@@ -231,10 +230,6 @@ const App = () => {
         const { feed: userPostsResponse, hasMore } = await blueskyService.getUserPosts(resetCursor);
         console.log(`[Posts] Received ${userPostsResponse.length} raw posts, hasMore: ${hasMore}`);
         setHasMorePosts(hasMore);
-
-        // Log current state of queues
-        console.log(`[Posts] Current deletion queue: ${deletionQueue.map(d => d.uri).join(', ')}`);
-        console.log(`[Posts] Current triaged posts: ${Array.from(triagedPosts.keys()).join(', ')}`);
 
         // Create a Set of all URIs we want to filter out (both triaged and queued for deletion)
         const filteredUris = new Set(
