@@ -14,10 +14,10 @@ A React Native project built with Expo that enables swipe interactions (left, ri
 
 ## Features
 
-- Swipeable card list built on React Native & Expo.  
-- Customizable swipe gestures (up, down, left, right).  
-- Visual overlays for diverse swipe directions.  
-- Ready-to-use Dev Container for local development.  
+- Swipeable card list built on React Native & Expo.
+- Customizable swipe gestures (up, down, left, right).
+- Visual overlays for diverse swipe directions.
+- Ready-to-use Dev Container for local development.
 
 ## Prerequisites
 
@@ -43,28 +43,28 @@ A React Native project built with Expo that enables swipe interactions (left, ri
 
 This project includes configuration for a Dev Container (in .devcontainer/) with the following features:
 
-1. Android SDK and platform tools  
-2. Node.js & Yarn  
-3. Watchman for file watching  
+1. Android SDK and platform tools
+2. Node.js & Yarn
+3. Watchman for file watching
 
 Steps to use the Dev Container in VS Code:
 
-1. Install the “Dev Containers” extension.  
-2. Open the folder in VS Code.  
-3. When prompted, “Reopen in Container” to build and enter the Dev Container.  
-4. The container initialization will install dependencies and set up your environment for development.  
+1. Install the “Dev Containers” extension.
+2. Open the folder in VS Code.
+3. When prompted, “Reopen in Container” to build and enter the Dev Container.
+4. The container initialization will install dependencies and set up your environment for development.
 
 Optional: You can connect a physical Android device over Wi-Fi by following the instructions in [.devcontainer/README.md](.devcontainer/README.md) (e.g., enabling TCP/IP with adb, identifying the device IP, executing adb connect, etc.).
 
 ## Project Structure
 
-- src/  
-  - App.tsx – Main application component.  
-  - components/ – Reusable UI components (e.g., ActionButton).  
-- .devcontainer/  
-  - Dockerfile, devcontainer.json – Container configuration.  
-  - postCreateCommand.sh – Runs after the container is built, installing dependencies and tooling.  
-- App.js – Entry point for the React Native application, importing the src/App.tsx file.  
+- src/
+  - App.tsx – Main application component.
+  - components/ – Reusable UI components (e.g., ActionButton).
+- .devcontainer/
+  - Dockerfile, devcontainer.json – Container configuration.
+  - postCreateCommand.sh – Runs after the container is built, installing dependencies and tooling.
+- App.js – Entry point for the React Native application, importing the src/App.tsx file.
 - package.json – Node/Expo scripts and dependencies.
 
 ## License
