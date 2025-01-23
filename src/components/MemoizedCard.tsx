@@ -1,6 +1,6 @@
 import type { AppBskyEmbedImages, AppBskyEmbedVideo } from '@atproto/api';
 import React, { useCallback } from 'react';
-import { Image, Text, View } from 'react-native';
+import { Image, Text, View, Linking, TouchableOpacity } from 'react-native';
 import { cardStyles } from '../styles/card.styles';
 import type { PostData } from '../types/post';
 
@@ -75,6 +75,14 @@ const Card = ({ postData, isRepost }: CardProps) => {
 
   const embeddedMedia = getEmbeddedMedia(postData.embed);
 
+  const openInBlueSky = useCallback(
+    (uri: string) => {
+      const bskyAppUrl = `https://bsky.app/profile/${postData.author.handle}/post/${uri.split('/').pop()}`;
+      Linking.openURL(bskyAppUrl);
+    },
+    [postData.author.handle],
+  );
+
   return (
     <View style={cardStyles.renderCardContainer}>
       {isRepost && <Text style={[cardStyles.repostIndicator, { opacity: 1 }]}>🔄 Repost</Text>}
@@ -94,9 +102,11 @@ const Card = ({ postData, isRepost }: CardProps) => {
         )}
 
         <View style={cardStyles.postFooter}>
-          <Text style={cardStyles.dateText}>
-            {new Date(postData.record.createdAt).toLocaleString()}
-          </Text>
+          <TouchableOpacity onPress={() => openInBlueSky(postData.uri)}>
+            <Text style={[cardStyles.dateText, cardStyles.linkText]}>
+              {new Date(postData.record.createdAt).toLocaleString()}
+            </Text>
+          </TouchableOpacity>
           {renderPostStats(postData)}
         </View>
       </View>

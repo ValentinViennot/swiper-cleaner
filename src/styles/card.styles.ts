@@ -123,4 +123,7 @@ export const cardStyles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
+  linkText: {
+    textDecorationLine: 'none',
+  },
 });
