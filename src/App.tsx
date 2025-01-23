@@ -20,12 +20,19 @@ import ActionButton from './components/ActionButton';
 import ConfigurationScreen from './components/ConfigurationScreen';
 import { BlueSkyService } from './services/bluesky';
 
+// Constants
 const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
-
 const ICON_SIZE = 24;
 
+// Types
 type PostData = PostView & { record: AppBskyFeedPost.Record };
+type TriagedPost = {
+  uri: string;
+  triagedAt: string;
+  action: 'keep' | 'delete' | 'repost' | 'snooze';
+};
 
+// Configuration
 const springConfig = {
   stiffness: 200,
   damping: 15,
@@ -39,14 +46,17 @@ const STORAGE_KEYS = {
   USERNAME: '@bluesky_username',
   APP_PASSWORD: '@bluesky_app_password',
   SHOW_REPOSTS: '@bluesky_show_reposts',
+  TRIAGED_POSTS: '@bluesky_triaged_posts',
+  REVIEW_INTERVAL: '@bluesky_review_interval',
 };
 
 const App = () => {
+  // State
   const [posts, setPosts] = useState<PostData[]>([]);
   const [showReposts, setShowReposts] = useState(true);
-  const ref = useRef<SwiperCardRefType>();
-  const bluesky = useRef(new BlueSkyService());
-  const [credentials, setCredentials] = useState<{ username: string; appPassword: string }>({
+  const [triagedPosts, setTriagedPosts] = useState<TriagedPost[]>([]);
+  const [reviewInterval, setReviewInterval] = useState(30);
+  const [credentials, setCredentials] = useState({
     username: '',
     appPassword: '',
   });
@@ -55,6 +65,58 @@ const App = () => {
   const [deletionQueue, setDeletionQueue] = useState<string[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
 
+  // Refs
+  const ref = useRef<SwiperCardRefType>();
+  const bluesky = useRef(new BlueSkyService());
+
+  // Storage Helpers
+  const loadTriagedPosts = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.TRIAGED_POSTS);
+      const interval = await AsyncStorage.getItem(STORAGE_KEYS.REVIEW_INTERVAL);
+
+      if (stored) {
+        setTriagedPosts(JSON.parse(stored));
+      }
+      if (interval) {
+        setReviewInterval(Number(interval));
+      }
+    } catch (error) {
+      console.error('Error loading triaged posts:', error);
+    }
+  };
+
+  const cleanExpiredTriagedPosts = useCallback(() => {
+    if (reviewInterval === 0) return;
+
+    const now = new Date();
+    const updatedPosts = triagedPosts.filter(post => {
+      const triagedDate = new Date(post.triagedAt);
+      const daysSinceTriaged = Math.floor(
+        (now.getTime() - triagedDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      return daysSinceTriaged < reviewInterval;
+    });
+
+    if (updatedPosts.length !== triagedPosts.length) {
+      setTriagedPosts(updatedPosts);
+      AsyncStorage.setItem(STORAGE_KEYS.TRIAGED_POSTS, JSON.stringify(updatedPosts));
+    }
+  }, [triagedPosts, reviewInterval]);
+
+  const addTriagedPost = async (uri: string, action: TriagedPost['action']) => {
+    const newTriagedPost: TriagedPost = {
+      uri,
+      triagedAt: new Date().toISOString(),
+      action,
+    };
+
+    const updatedPosts = [...triagedPosts, newTriagedPost];
+    setTriagedPosts(updatedPosts);
+    await AsyncStorage.setItem(STORAGE_KEYS.TRIAGED_POSTS, JSON.stringify(updatedPosts));
+  };
+
+  // Auth Helpers
   const loadCredentials = async () => {
     try {
       const username = await AsyncStorage.getItem(STORAGE_KEYS.USERNAME);
@@ -88,7 +150,12 @@ const App = () => {
     }
   };
 
-  const handleSaveConfig = async (username: string, appPassword: string, showReposts: boolean) => {
+  const handleSaveConfig = async (
+    username: string,
+    appPassword: string,
+    showReposts: boolean,
+    reviewInterval: number,
+  ) => {
     try {
       if (!username || !appPassword) {
         throw new Error('Username and password are required');
@@ -100,9 +167,11 @@ const App = () => {
       await AsyncStorage.setItem(STORAGE_KEYS.USERNAME, username);
       await AsyncStorage.setItem(STORAGE_KEYS.APP_PASSWORD, appPassword);
       await AsyncStorage.setItem(STORAGE_KEYS.SHOW_REPOSTS, String(showReposts));
+      await AsyncStorage.setItem(STORAGE_KEYS.REVIEW_INTERVAL, String(reviewInterval));
 
       setCredentials({ username, appPassword });
       setShowReposts(showReposts);
+      setReviewInterval(reviewInterval);
       setShowConfig(false);
       loadPosts();
     } catch (error) {
@@ -113,6 +182,7 @@ const App = () => {
     }
   };
 
+  // Post Loading
   const loadPosts = useCallback(async () => {
     if (!credentials.username || !credentials.appPassword || showConfig || isLoggingIn) {
       return;
@@ -130,11 +200,14 @@ const App = () => {
       console.log(`Received ${userPostsResponse.length} raw posts`);
 
       const filteredPosts = userPostsResponse.filter(post => {
+        if (triagedPosts.some(tp => tp.uri === post.post.uri)) {
+          return false;
+        }
+
         if (!showReposts && post.reason?.$type === 'app.bsky.feed.defs#reasonRepost') {
           return false;
         }
         const type = (post.post.record as { $type: string }).$type;
-        console.log(`Post type: ${type}`);
         return type === 'app.bsky.feed.post';
       });
       console.log(`Filtered to ${filteredPosts.length} valid posts`);
@@ -155,14 +228,7 @@ const App = () => {
     }
   }, [credentials, showReposts, showConfig, isLoggingIn]);
 
-  useEffect(() => {
-    loadCredentials();
-  }, []); // Only run once on mount
-
-  useEffect(() => {
-    loadPosts();
-  }, [loadPosts]); // Only run when loadPosts changes
-
+  // Rendering Helpers
   const renderPostImage = useCallback(
     (img: any, index: number) => (
       <Image
@@ -225,6 +291,7 @@ const App = () => {
     [renderPostImage, renderPostStats],
   );
 
+  // Overlay Labels
   const createOverlayLabel = useCallback(
     (text: string, color: string) => () => (
       <View
@@ -247,6 +314,7 @@ const App = () => {
   const OverlayLabelTop = createOverlayLabel('REPOST', 'blue');
   const OverlayLabelBottom = createOverlayLabel('SNOOZE', 'orange');
 
+  // Interaction Handlers
   const handleSwipe = useCallback(
     (direction: string, cardIndex: number) => {
       const postUri = posts[cardIndex]?.uri;
@@ -259,13 +327,20 @@ const App = () => {
           }
           break;
         case 'right':
-          console.log('TODO: Keep post', postUri!);
+          if (postUri) {
+            addTriagedPost(postUri, 'keep');
+          }
           break;
         case 'up':
-          bluesky.current.repost(postUri!);
+          if (postUri) {
+            bluesky.current.repost(postUri);
+            addTriagedPost(postUri, 'repost');
+          }
           break;
         case 'down':
-          console.log('TODO: Snooze post', postUri!);
+          if (postUri) {
+            addTriagedPost(postUri, 'snooze');
+          }
           break;
       }
     },
@@ -297,19 +372,45 @@ const App = () => {
     try {
       for (const uri of deletionQueue) {
         await bluesky.current.deletePost(uri);
+        await addTriagedPost(uri, 'delete');
       }
       setDeletionQueue([]);
-      // loadPosts();
     } catch (error) {
       console.error('Error processing deletion queue:', error);
       Alert.alert('Error', 'Failed to delete some posts. Please try again.');
     }
   }, [deletionQueue]);
 
+  // Add reset function
+  const handleReset = useCallback(async () => {
+    await AsyncStorage.removeItem(STORAGE_KEYS.TRIAGED_POSTS);
+    setTriagedPosts([]);
+    setShowConfig(false);
+    loadPosts();
+  }, [loadPosts]);
+
+  // Effects
+  useEffect(() => {
+    loadCredentials();
+  }, []);
+
+  useEffect(() => {
+    loadPosts();
+  }, [loadPosts]);
+
+  useEffect(() => {
+    loadTriagedPosts();
+  }, []);
+
+  useEffect(() => {
+    cleanExpiredTriagedPosts();
+  }, [cleanExpiredTriagedPosts]);
+
+  // Render
   return (
     <GestureHandlerRootView style={styles.container}>
       <View style={styles.header}>
-        {credentials.username ? (
+        {credentials.username && !showConfig ? (
           <TouchableOpacity style={styles.userInfo} onPress={() => setShowConfig(true)}>
             <Text style={styles.userInfoText}>@{credentials.username}</Text>
             <AntDesign name="setting" size={16} color="#999" style={styles.settingsIcon} />
@@ -376,11 +477,13 @@ const App = () => {
           username={credentials.username}
           appPassword={credentials.appPassword}
           showReposts={showReposts}
+          reviewInterval={reviewInterval}
           onSave={handleSaveConfig}
           onLogout={clearCredentials}
           onCancel={() => setShowConfig(false)}
           isLoading={isLoggingIn}
           isLoggedIn={!!credentials.username}
+          onReset={handleReset}
         />
       )}
 

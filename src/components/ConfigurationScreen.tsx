@@ -5,39 +5,50 @@ type ConfigurationScreenProps = {
   username: string;
   appPassword: string;
   showReposts: boolean;
-  onSave: (username: string, appPassword: string, showReposts: boolean) => void;
+  reviewInterval: number;
+  onSave: (
+    username: string,
+    appPassword: string,
+    showReposts: boolean,
+    reviewInterval: number,
+  ) => void;
   onLogout?: () => void;
   onCancel: () => void;
   isLoading: boolean;
   isLoggedIn: boolean;
+  onReset?: () => void;
 };
 
 const ConfigurationScreen = ({
   username,
   appPassword,
   showReposts,
+  reviewInterval,
   onSave,
   onLogout,
   onCancel,
   isLoading,
   isLoggedIn,
+  onReset,
 }: ConfigurationScreenProps) => {
   const [newUsername, setNewUsername] = useState(username);
   const [newAppPassword, setNewAppPassword] = useState(appPassword);
   const [newShowReposts, setNewShowReposts] = useState(showReposts);
+  const [newReviewInterval, setNewReviewInterval] = useState(reviewInterval);
 
   useEffect(() => {
     setNewUsername(username);
     setNewAppPassword(appPassword);
     setNewShowReposts(showReposts);
-  }, [username, appPassword, showReposts]);
+    setNewReviewInterval(reviewInterval);
+  }, [username, appPassword, showReposts, reviewInterval]);
 
   const hasChanges =
     newUsername !== username || newAppPassword !== appPassword || newShowReposts !== showReposts;
 
   const handleSave = () => {
     if (hasChanges) {
-      onSave(newUsername, newAppPassword, newShowReposts);
+      onSave(newUsername, newAppPassword, newShowReposts, newReviewInterval);
     }
   };
 
@@ -78,6 +89,20 @@ const ConfigurationScreen = ({
         />
       </View>
 
+      <View style={styles.toggleContainer}>
+        <Text style={styles.label}>Review posts every</Text>
+        <View style={styles.inlineInputContainer}>
+          <TextInput
+            style={styles.numberInput}
+            value={String(newReviewInterval)}
+            onChangeText={text => setNewReviewInterval(Number(text.replace(/[^0-9]/g, '')))}
+            keyboardType="numeric"
+            maxLength={3}
+          />
+          <Text style={styles.label}>days</Text>
+        </View>
+      </View>
+
       <View style={styles.buttonGroup}>
         <TouchableOpacity
           style={[
@@ -101,6 +126,12 @@ const ConfigurationScreen = ({
         {isLoggedIn && (
           <TouchableOpacity style={styles.cancelButton} onPress={onCancel} disabled={isLoading}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        )}
+
+        {isLoggedIn && onReset && (
+          <TouchableOpacity style={styles.resetButton} onPress={onReset}>
+            <Text style={styles.resetButtonText}>Reset Triaged Posts</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -187,6 +218,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     textDecorationLine: 'underline',
+  },
+  inlineInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  numberInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 8,
+    width: 50,
+    textAlign: 'center',
+    fontSize: 16,
+  },
+  resetButton: {
+    marginTop: 12,
+    padding: 15,
+    borderRadius: 8,
+    backgroundColor: '#ff9800',
+  },
+  resetButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 
