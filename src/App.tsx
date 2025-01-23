@@ -10,7 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AntDesign } from '@expo/vector-icons';
 import { Swiper, type SwiperCardRefType } from 'rn-swiper-list';
 
-import { ActionButton } from '../components';
+import ActionButton from '../components/ActionButton';
 
 const IMAGES: ImageSourcePropType[] = [
   require('../assets/images/1.jpg'),
