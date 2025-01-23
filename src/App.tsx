@@ -2,11 +2,13 @@
 import type { AppBskyEmbedImages, AppBskyFeedPost } from '@atproto/api';
 import type { PostView } from '@atproto/api/dist/client/types/app/bsky/feed/defs';
 import { AntDesign } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, Image, Switch, Dimensions } from 'react-native';
+import { Alert, Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Swiper, type SwiperCardRefType } from 'rn-swiper-list';
-import ActionButton from '../components/ActionButton';
+import ActionButton from './components/ActionButton';
+import ConfigurationScreen from './components/ConfigurationScreen';
 import { BlueSkyService } from './services/bluesky';
 
 const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
@@ -24,17 +26,90 @@ const springConfig = {
   restSpeedThreshold: 0.01,
 };
 
+const STORAGE_KEYS = {
+  USERNAME: '@bluesky_username',
+  APP_PASSWORD: '@bluesky_app_password',
+  SHOW_REPOSTS: '@bluesky_show_reposts',
+};
+
 const App = () => {
   const [posts, setPosts] = useState<PostData[]>([]);
   const [showReposts, setShowReposts] = useState(true);
   const ref = useRef<SwiperCardRefType>();
   const bluesky = useRef(new BlueSkyService());
+  const [credentials, setCredentials] = useState<{ username: string; appPassword: string }>({
+    username: '',
+    appPassword: '',
+  });
+  const [showConfig, setShowConfig] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const loadCredentials = async () => {
+    try {
+      const username = await AsyncStorage.getItem(STORAGE_KEYS.USERNAME);
+      const appPassword = await AsyncStorage.getItem(STORAGE_KEYS.APP_PASSWORD);
+      const showRepostsStr = await AsyncStorage.getItem(STORAGE_KEYS.SHOW_REPOSTS);
+
+      if (showRepostsStr !== null) {
+        setShowReposts(showRepostsStr === 'true');
+      }
+
+      if (username && appPassword) {
+        setCredentials({ username, appPassword });
+      } else {
+        setShowConfig(true);
+      }
+    } catch (error) {
+      console.error('Error loading credentials:', error);
+      setShowConfig(true);
+    }
+  };
+
+  const clearCredentials = async () => {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.USERNAME);
+      await AsyncStorage.removeItem(STORAGE_KEYS.APP_PASSWORD);
+      setCredentials({ username: '', appPassword: '' });
+      setShowConfig(true);
+    } catch (error) {
+      console.error('Error clearing credentials:', error);
+    }
+  };
+
+  const handleSaveConfig = async (username: string, appPassword: string, showReposts: boolean) => {
+    try {
+      if (!username || !appPassword) {
+        throw new Error('Username and password are required');
+      }
+
+      setIsLoggingIn(true);
+      await bluesky.current.login(username, appPassword);
+
+      await AsyncStorage.setItem(STORAGE_KEYS.USERNAME, username);
+      await AsyncStorage.setItem(STORAGE_KEYS.APP_PASSWORD, appPassword);
+      await AsyncStorage.setItem(STORAGE_KEYS.SHOW_REPOSTS, String(showReposts));
+
+      setCredentials({ username, appPassword });
+      setShowReposts(showReposts);
+      setShowConfig(false);
+      loadPosts();
+    } catch (error) {
+      console.error('Login failed with new credentials:', error);
+      Alert.alert('Login failed. Please check your credentials and try again.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
 
   const loadPosts = useCallback(async () => {
+    if (!credentials.username || !credentials.appPassword || showConfig || isLoggingIn) {
+      return; // Don't attempt to load posts if we're not ready
+    }
+
     console.log('Starting to load posts...');
     try {
       console.log('Attempting login...');
-      await bluesky.current.login('username', 'password');
+      await bluesky.current.login(credentials.username, credentials.appPassword);
       console.log('Login successful');
 
       console.log('Fetching user posts...');
@@ -61,12 +136,17 @@ const App = () => {
       console.log('Posts loaded into state');
     } catch (error) {
       console.error('Error loading posts:', error);
+      await clearCredentials(); // Clear invalid credentials
     }
-  }, [showReposts]);
+  }, [credentials, showReposts, showConfig, isLoggingIn]);
+
+  useEffect(() => {
+    loadCredentials();
+  }, []); // Only run once on mount
 
   useEffect(() => {
     loadPosts();
-  }, [loadPosts]);
+  }, [loadPosts]); // Only run when loadPosts changes
 
   const renderPostImage = useCallback(
     (img: any, index: number) => (
@@ -199,15 +279,12 @@ const App = () => {
   return (
     <GestureHandlerRootView style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.toggleContainer}>
-          <Text style={styles.toggleLabel}>Show Reposts</Text>
-          <Switch
-            value={showReposts}
-            onValueChange={setShowReposts}
-            trackColor={{ false: '#767577', true: '#81b0ff' }}
-            thumbColor={showReposts ? '#2196F3' : '#f4f3f4'}
-          />
-        </View>
+        {credentials.username ? (
+          <TouchableOpacity style={styles.userInfo} onPress={() => setShowConfig(true)}>
+            <Text style={styles.userInfoText}>@{credentials.username}</Text>
+            <AntDesign name="setting" size={16} color="#999" style={styles.settingsIcon} />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <View style={styles.subContainer}>
@@ -254,6 +331,18 @@ const App = () => {
           <AntDesign name="heart" size={ICON_SIZE} color="white" />
         </ActionButton>
       </View>
+
+      {showConfig && (
+        <ConfigurationScreen
+          username={credentials.username}
+          appPassword={credentials.appPassword}
+          showReposts={showReposts}
+          onSave={handleSaveConfig}
+          onLogout={clearCredentials}
+          isLoading={isLoggingIn}
+          isLoggedIn={!!credentials.username}
+        />
+      )}
     </GestureHandlerRootView>
   );
 };
@@ -391,17 +480,23 @@ const styles = StyleSheet.create({
   header: {
     position: 'absolute',
     top: 50,
-    left: 20,
+    right: 16,
     zIndex: 1,
   },
-  toggleContainer: {
+  userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
-  toggleLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
+  userInfoText: {
+    fontSize: 13,
+    color: '#999',
+    fontWeight: '400',
+  },
+  settingsIcon: {
+    marginLeft: 6,
   },
   overlayText: {
     color: 'white',
