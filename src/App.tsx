@@ -83,6 +83,9 @@ class Mutex {
   }
 }
 
+// Add this at the top level, outside the component
+const blueskyService = new BlueSkyService();
+
 const App = () => {
   const [posts, setPosts] = useState<PostData[]>([]);
   const [showReposts, setShowReposts] = useState(true);
@@ -101,10 +104,11 @@ const App = () => {
   const [processedPosts] = useState(new Set<string>());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [isAppReady, setIsAppReady] = useState(false);
 
   // Refs
   const ref = useRef<SwiperCardRefType>();
-  const bluesky = useRef(new BlueSkyService());
+  const isLoading = useRef(false);
   const swipeMutex = useRef(new Mutex());
 
   // Storage Helpers
@@ -244,7 +248,7 @@ const App = () => {
 
       setIsLoggingIn(true);
       console.log('[Config] Attempting login with new credentials');
-      await bluesky.current.login(username, appPassword);
+      await blueskyService.login(username, appPassword);
       console.log('[Config] Login successful');
 
       await AsyncStorage.setItem(STORAGE_KEYS.USERNAME, username);
@@ -270,33 +274,29 @@ const App = () => {
   // Post Loading
   const loadPosts = useCallback(
     async (resetCursor = false) => {
+      if (isLoading.current) {
+        console.log('[Posts] Already loading posts, skipping');
+        return false;
+      }
+
       console.log('[Posts] Starting to load posts');
       if (!credentials.username || !credentials.appPassword || showConfig || isLoggingIn) {
         console.log('[Posts] Skipping post load - missing credentials or showing config');
         return false;
       }
 
+      isLoading.current = true;
       setIsLoadingPosts(true);
-      setIsComplete(false);
 
       try {
-        console.log('[Posts] Attempting login');
-        await bluesky.current.login(credentials.username, credentials.appPassword);
-        console.log('[Posts] Login successful');
-
-        console.log('[Posts] Fetching user posts');
-        const { feed: userPostsResponse, hasMore } =
-          await bluesky.current.getUserPosts(resetCursor);
+        await blueskyService.login(credentials.username, credentials.appPassword);
+        const { feed: userPostsResponse, hasMore } = await blueskyService.getUserPosts(resetCursor);
         console.log(`[Posts] Received ${userPostsResponse.length} raw posts, hasMore: ${hasMore}`);
         setHasMorePosts(hasMore);
 
-        // Get all triaged URIs in lowercase for comparison
         const triagedUris = Array.from(triagedPosts.keys()).map(uri => uri.toLowerCase());
-        console.log(`[Posts] Found ${triagedUris.length} triaged posts to filter out`);
-
         const filteredPosts = userPostsResponse.filter(post => {
           const postUri = post.post.uri.toLowerCase();
-          // Check both triaged and processed posts
           const isTriaged = triagedUris.includes(postUri);
           const isProcessed = processedPosts.has(postUri);
 
@@ -318,13 +318,16 @@ const App = () => {
         }));
 
         console.log(`[Posts] Loaded ${formattedPosts.length} posts into state`);
+
+        // Always set isInitialized to true after a successful load
+        setIsInitialized(true);
+
         if (formattedPosts.length === 0 && !hasMore) {
           console.log('[Posts] No posts remaining and no more to load, marking as complete');
           setIsComplete(true);
           return false;
         } else {
           setPosts(prev => (resetCursor ? formattedPosts : [...prev, ...formattedPosts]));
-          setIsInitialized(true);
           return true;
         }
       } catch (error) {
@@ -332,6 +335,7 @@ const App = () => {
         await clearCredentials();
         return false;
       } finally {
+        isLoading.current = false;
         setIsLoadingPosts(false);
       }
     },
@@ -459,6 +463,7 @@ const App = () => {
       }
 
       await swipeMutex.current.acquire();
+      let postUri = '';
 
       try {
         const post = posts[cardIndex];
@@ -467,11 +472,20 @@ const App = () => {
           throw new Error('Invalid card index');
         }
 
-        const postUri = post.uri;
+        postUri = post.uri.toLowerCase();
         if (!postUri) {
           console.log('[Swipe] Post has no URI:', post);
           throw new Error('Invalid post URI (no URI)');
         }
+
+        // Check if we've already processed this post
+        if (processedPosts.has(postUri)) {
+          console.log('[Swipe] Post already processed, skipping:', postUri);
+          return;
+        }
+
+        // Mark as processed before performing actions to prevent duplicates
+        processedPosts.add(postUri);
 
         switch (direction) {
           case 'left':
@@ -484,7 +498,7 @@ const App = () => {
             break;
           case 'up':
             console.log('[Swipe] Reposting and triaging:', postUri);
-            await bluesky.current.repost(postUri);
+            await blueskyService.repost(postUri);
             await addTriagedPost(postUri);
             break;
           case 'down':
@@ -492,7 +506,11 @@ const App = () => {
             await addTriagedPost(postUri);
             break;
         }
-        processedPosts.add(postUri.toLowerCase());
+      } catch (error) {
+        console.error('[Swipe] Error processing swipe:', error);
+        if (postUri) {
+          processedPosts.delete(postUri);
+        }
       } finally {
         swipeMutex.current.release();
       }
@@ -561,7 +579,7 @@ const App = () => {
     try {
       for (const uri of deletionQueue) {
         console.log('[Delete] Deleting post:', uri);
-        await bluesky.current.deletePost(uri);
+        await blueskyService.deletePost(uri);
         await addTriagedPost(uri);
       }
       console.log('[Delete] Successfully processed deletion queue');
@@ -624,28 +642,31 @@ const App = () => {
     }
   }, [hasMorePosts, loadPosts]);
 
-  // Effects
+  // Replace the initial credentials loading effect
   useEffect(() => {
-    console.log('[Effect] Loading initial credentials');
-    loadCredentials();
+    const initializeApp = async () => {
+      console.log('[App] Starting initialization');
+      try {
+        await loadCredentials();
+        await loadTriagedPosts();
+        await cleanExpiredTriagedPosts();
+        setIsAppReady(true);
+        console.log('[App] Initialization complete');
+      } catch (error) {
+        console.error('[App] Initialization failed:', error);
+      }
+    };
+
+    initializeApp();
   }, []);
 
+  // Update the posts loading effect to prevent unnecessary reloads
   useEffect(() => {
-    if (!isInitialized) {
-      console.log('[Effect] Initial posts load');
-      loadPosts();
+    if (isAppReady && !isInitialized && !showConfig && !isComplete) {
+      console.log('[Effect] Loading initial posts - app is ready');
+      loadPosts(true);
     }
-  }, [isInitialized, loadPosts]);
-
-  useEffect(() => {
-    console.log('[Effect] Loading triaged posts');
-    loadTriagedPosts();
-  }, []);
-
-  useEffect(() => {
-    console.log('[Effect] Cleaning expired triaged posts');
-    cleanExpiredTriagedPosts();
-  }, [cleanExpiredTriagedPosts]);
+  }, [isAppReady, isInitialized, showConfig, isComplete, loadPosts]);
 
   // Add initialization logging to a useEffect that only runs once
   useEffect(() => {
