@@ -98,8 +98,9 @@ export const styles = StyleSheet.create({
   resetButton: {
     backgroundColor: colors.warning,
     borderRadius: 8,
-    marginTop: 12,
+    marginBottom: 24,
     padding: 15,
+    width: '100%',
   },
   resetButtonText: {
     color: colors.white,

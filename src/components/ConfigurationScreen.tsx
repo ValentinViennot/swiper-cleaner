@@ -18,6 +18,7 @@ type ConfigurationScreenProps = {
   isLoading: boolean;
   isLoggedIn: boolean;
   onReset?: () => void;
+  hasTriagedPosts?: boolean;
 };
 
 const ConfigurationScreen = ({
@@ -31,6 +32,7 @@ const ConfigurationScreen = ({
   isLoading,
   isLoggedIn,
   onReset,
+  hasTriagedPosts,
 }: ConfigurationScreenProps) => {
   const [newUsername, setNewUsername] = useState(username);
   const [newAppPassword, setNewAppPassword] = useState(appPassword);
@@ -56,6 +58,12 @@ const ConfigurationScreen = ({
   return (
     <View style={styles.container}>
       <Text style={styles.title}>BlueSky Configuration</Text>
+
+      {isLoggedIn && onReset && hasTriagedPosts && (
+        <TouchableOpacity style={styles.resetButton} onPress={onReset}>
+          <Text style={styles.resetButtonText}>Reset Triaged Posts</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Username</Text>
@@ -127,12 +135,6 @@ const ConfigurationScreen = ({
         {isLoggedIn && (
           <TouchableOpacity style={styles.cancelButton} onPress={onCancel} disabled={isLoading}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        )}
-
-        {isLoggedIn && onReset && (
-          <TouchableOpacity style={styles.resetButton} onPress={onReset}>
-            <Text style={styles.resetButtonText}>Reset Triaged Posts</Text>
           </TouchableOpacity>
         )}
       </View>

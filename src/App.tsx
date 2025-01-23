@@ -47,6 +47,7 @@ const App = () => {
   const isLoading = useRef(false);
   const swipeMutex = useRef(new Mutex());
   const initializationComplete = useRef(false);
+  const needsReload = useRef(false);
 
   // Storage Helpers
   const loadTriagedPosts = async () => {
@@ -194,12 +195,11 @@ const App = () => {
       await AsyncStorage.setItem(STORAGE_KEYS.REVIEW_INTERVAL, String(reviewInterval));
       console.log('[Config] Configuration saved to storage');
 
-      setIsInitialized(false);
       setCredentials({ username, appPassword });
       setShowReposts(showReposts);
       setReviewInterval(reviewInterval);
       setShowConfig(false);
-      loadPosts();
+      needsReload.current = true;
     } catch (error) {
       console.error('[Config] Login failed:', error);
       Alert.alert('Login failed. Please check your credentials and try again.');
@@ -216,14 +216,15 @@ const App = () => {
         return false;
       }
 
-      console.log('[Posts] Starting to load posts');
       if (!credentials.username || !credentials.appPassword || showConfig || isLoggingIn) {
         console.log('[Posts] Skipping post load - missing credentials or showing config');
         return false;
       }
 
+      console.log('[Posts] Starting to load posts');
       isLoading.current = true;
       setIsLoadingPosts(true);
+      setIsComplete(false);
 
       try {
         await blueskyService.login(credentials.username, credentials.appPassword);
@@ -232,13 +233,10 @@ const App = () => {
         setHasMorePosts(hasMore);
 
         // Create a Set of all URIs we want to filter out (both triaged and queued for deletion)
-        const filteredUris = new Set(
-          [
-            ...Array.from(triagedPosts.keys()),
-            ...deletionQueue.map(item => item.uri),
-            ...posts.map(post => post.cardUri), // Also filter out posts currently in the stack
-          ].map(uri => uri.toLowerCase()),
-        );
+        const filteredUris = new Set([
+          ...Array.from(triagedPosts.keys()),
+          ...deletionQueue.map(item => item.uri),
+        ]);
 
         console.log(`[Posts] Filtering out ${filteredUris.size} URIs`);
 
@@ -275,7 +273,6 @@ const App = () => {
           });
 
         console.log(`[Posts] Loaded ${filteredPosts.length} posts into state`);
-        setIsInitialized(true);
 
         if (filteredPosts.length === 0 && !hasMore) {
           console.log('[Posts] No posts remaining after filtering, marking as complete');
@@ -283,7 +280,9 @@ const App = () => {
           return false;
         }
 
-        setPosts(prev => (resetCursor ? filteredPosts : [...prev, ...filteredPosts]));
+        setPosts(filteredPosts);
+        setIsComplete(false);
+        setIsInitialized(true);
         return true;
       } catch (error) {
         console.error('[Posts] Error loading posts:', error);
@@ -354,6 +353,7 @@ const App = () => {
           throw new Error('Invalid post URI (no URI)');
         }
 
+        // Wait for the appropriate action to complete before proceeding
         switch (direction) {
           case 'left':
             await handleDeleteSwipe(post);
@@ -363,7 +363,7 @@ const App = () => {
             if (deletionQueue.find(item => item.uri === post.cardUri)) {
               Alert.alert(
                 `Cannot ${direction === 'right' ? 'keep' : 'repost'} this post`,
-                'This post is already queued for deletion. Please use "Reset Triaged Posts" in the configuration to undo this.',
+                'This post is already queued for deletion. Please restart the app to undo this.',
                 [{ text: 'OK' }],
               );
               break;
@@ -371,8 +371,13 @@ const App = () => {
             await handleKeepSwipe(post.cardUri, direction === 'up' ? post.cid : undefined);
             break;
           case 'down':
-            handleSnoozeSwipe(post);
+            await handleSnoozeSwipe(post);
             break;
+        }
+
+        // If this is the last card and we have more posts to load
+        if (cardIndex === posts.length - 1 && hasMorePosts) {
+          await loadPosts(false);
         }
       } catch (error) {
         console.error('[Swipe] Error processing swipe:', error);
@@ -380,18 +385,21 @@ const App = () => {
         swipeMutex.current.release();
       }
     },
-    [posts],
+    [posts, hasMorePosts, loadPosts],
   );
 
   const handleDeleteSwipe = useCallback(
     async (post: PostData) => {
       console.log('[Delete] Adding post to deletion queue:', post.cardUri);
-      setDeletionQueue(prev => {
-        const existingIndex = prev.findIndex(item => item.uri === post.cardUri);
-        if (existingIndex >= 0) {
-          return prev;
-        }
-        return [...prev, { uri: post.cardUri, isRepost: !!post.isRepost }];
+      return new Promise<void>(resolve => {
+        setDeletionQueue(prev => {
+          const existingIndex = prev.findIndex(item => item.uri === post.cardUri);
+          if (existingIndex >= 0) {
+            return prev;
+          }
+          return [...prev, { uri: post.cardUri, isRepost: !!post.isRepost }];
+        });
+        resolve();
       });
     },
     [setDeletionQueue],
@@ -411,9 +419,12 @@ const App = () => {
   );
 
   const handleSnoozeSwipe = useCallback(
-    (post: PostData) => {
+    async (post: PostData) => {
       console.log('[Swipe] Snoozing post:', post.uri);
-      setPosts(prevPosts => [...prevPosts, post]);
+      return new Promise<void>(resolve => {
+        setPosts(prevPosts => [...prevPosts, post]);
+        resolve();
+      });
     },
     [setPosts],
   );
@@ -520,22 +531,13 @@ const App = () => {
     }
   }, [loadPosts, posts.length, hasMorePosts]);
 
-  const handleSwipedAll = useCallback(async () => {
-    console.log('[Swiper] Reached end of stack, checking for more posts');
-    if (!hasMorePosts && currentIndex >= posts.length) {
+  const handleSwipedAll = useCallback(() => {
+    console.log('[Swiper] Reached end of stack');
+    if (!hasMorePosts) {
       console.log('[Swiper] No more posts available');
       setIsComplete(true);
-      return;
     }
-
-    await swipeMutex.current.acquire();
-    try {
-      await loadPosts(false);
-      console.log('[Swiper] Additional posts loaded');
-    } finally {
-      swipeMutex.current.release();
-    }
-  }, [hasMorePosts, loadPosts]);
+  }, [hasMorePosts]);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -565,6 +567,20 @@ const App = () => {
       loadPosts(true);
     }
   }, [isAppReady, isInitialized, showConfig, isComplete, loadPosts]);
+
+  useEffect(() => {
+    if (isAppReady && !showConfig && needsReload.current) {
+      console.log('[Effect] Reloading posts due to showReposts change');
+      needsReload.current = false;
+      setPosts([]);
+      setIsComplete(false);
+      setIsInitialized(false);
+
+      setTimeout(() => {
+        loadPosts(true);
+      }, 100);
+    }
+  }, [isAppReady, showConfig, loadPosts]);
 
   useEffect(() => {
     console.log('[App] Component mounted');
@@ -676,14 +692,15 @@ const App = () => {
           isLoading={isLoggingIn}
           isLoggedIn={!!credentials.username}
           onReset={handleReset}
+          hasTriagedPosts={triagedPosts.size > 0}
         />
       )}
 
-      {deletionQueue.length > 0 ? (
+      {!showConfig && deletionQueue.length > 0 ? (
         <TouchableOpacity style={styles.confirmButton} onPress={processDeletionQueue}>
           <Text style={styles.confirmButtonText}>DELETE ({deletionQueue.length})</Text>
         </TouchableOpacity>
-      ) : (
+      ) : !showConfig ? (
         <TouchableOpacity
           style={styles.donateButton}
           onPress={() =>
@@ -693,7 +710,7 @@ const App = () => {
           }>
           <Text style={styles.donateButtonText}>❤️ Donate</Text>
         </TouchableOpacity>
-      )}
+      ) : null}
     </GestureHandlerRootView>
   );
 };
