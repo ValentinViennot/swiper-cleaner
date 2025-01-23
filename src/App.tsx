@@ -273,7 +273,7 @@ const App = () => {
       console.log('[Posts] Starting to load posts');
       if (!credentials.username || !credentials.appPassword || showConfig || isLoggingIn) {
         console.log('[Posts] Skipping post load - missing credentials or showing config');
-        return;
+        return false;
       }
 
       setIsLoadingPosts(true);
@@ -321,13 +321,16 @@ const App = () => {
         if (formattedPosts.length === 0 && !hasMore) {
           console.log('[Posts] No posts remaining and no more to load, marking as complete');
           setIsComplete(true);
+          return false;
         } else {
           setPosts(prev => (resetCursor ? formattedPosts : [...prev, ...formattedPosts]));
           setIsInitialized(true);
+          return true;
         }
       } catch (error) {
         console.error('[Posts] Error loading posts:', error);
         await clearCredentials();
+        return false;
       } finally {
         setIsLoadingPosts(false);
       }
@@ -340,6 +343,7 @@ const App = () => {
       showReposts,
       triagedPosts,
       processedPosts,
+      clearCredentials,
     ],
   );
 
@@ -568,29 +572,39 @@ const App = () => {
     }
   }, [deletionQueue]);
 
-  // Update handleReset to properly clear all state
+  // Update handleReset to include more debugging and state management
   const handleReset = useCallback(async () => {
     console.log('[Reset] Starting reset process');
     try {
       const allKeys = await AsyncStorage.getAllKeys();
       const triagedKeys = allKeys.filter(key => key.startsWith(STORAGE_KEYS.TRIAGED_PREFIX));
+      console.log(`[Reset] Found ${triagedKeys.length} triaged keys to remove`);
       await AsyncStorage.multiRemove(triagedKeys);
 
       // Clear all relevant state
+      console.log('[Reset] Clearing application state');
       setTriagedPosts(new Map());
       processedPosts.clear();
       setPosts([]);
       setDeletionQueue([]);
+      setCurrentIndex(0);
+      setHasMorePosts(true); // Reset this flag to ensure we try to load posts
       setIsComplete(false);
       setIsInitialized(false);
       setShowConfig(false);
 
-      console.log('[Reset] Successfully reset all post data');
+      // Force a delay to ensure state updates have propagated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Load posts with reset cursor after clearing state
+      console.log('[Reset] Loading fresh posts');
+      const result = await loadPosts(true);
+      console.log('[Reset] Load posts result:', { result, hasMorePosts, posts: posts.length });
     } catch (error) {
       console.error('[Reset] Error resetting triaged posts:', error);
       Alert.alert('Error', 'Failed to reset triaged posts. Please try again.');
     }
-  }, [processedPosts]); // Add processedPosts to dependencies
+  }, [processedPosts, loadPosts, posts.length, hasMorePosts]);
 
   // Update the onSwipedAll handler
   const handleSwipedAll = useCallback(async () => {
