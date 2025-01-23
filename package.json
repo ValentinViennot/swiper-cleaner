@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@atproto/api": "^0.13.30",
     "expo": "^52.0.27",
     "expo-crypto": "~14.0.2",
     "expo-status-bar": "~2.0.1",
