@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 
 type ConfigurationScreenProps = {
@@ -7,6 +7,7 @@ type ConfigurationScreenProps = {
   showReposts: boolean;
   onSave: (username: string, appPassword: string, showReposts: boolean) => void;
   onLogout?: () => void;
+  onCancel: () => void;
   isLoading: boolean;
   isLoggedIn: boolean;
 };
@@ -17,12 +18,28 @@ const ConfigurationScreen = ({
   showReposts,
   onSave,
   onLogout,
+  onCancel,
   isLoading,
   isLoggedIn,
 }: ConfigurationScreenProps) => {
   const [newUsername, setNewUsername] = useState(username);
   const [newAppPassword, setNewAppPassword] = useState(appPassword);
   const [newShowReposts, setNewShowReposts] = useState(showReposts);
+
+  useEffect(() => {
+    setNewUsername(username);
+    setNewAppPassword(appPassword);
+    setNewShowReposts(showReposts);
+  }, [username, appPassword, showReposts]);
+
+  const hasChanges =
+    newUsername !== username || newAppPassword !== appPassword || newShowReposts !== showReposts;
+
+  const handleSave = () => {
+    if (hasChanges) {
+      onSave(newUsername, newAppPassword, newShowReposts);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -61,20 +78,32 @@ const ConfigurationScreen = ({
         />
       </View>
 
-      <TouchableOpacity
-        style={[styles.button, isLoading && styles.buttonDisabled]}
-        onPress={() => onSave(newUsername, newAppPassword, newShowReposts)}
-        disabled={isLoading}>
-        <Text style={styles.buttonText}>
-          {isLoading ? 'Verifying...' : isLoggedIn ? 'Save Changes' : 'Login'}
-        </Text>
-      </TouchableOpacity>
-
-      {isLoggedIn && onLogout && (
-        <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
+      <View style={styles.buttonGroup}>
+        <TouchableOpacity
+          style={[
+            styles.button,
+            isLoading && styles.buttonDisabled,
+            !hasChanges && styles.buttonDisabled,
+          ]}
+          onPress={handleSave}
+          disabled={isLoading || !hasChanges}>
+          <Text style={styles.buttonText}>
+            {isLoading ? 'Verifying...' : isLoggedIn ? 'Save Changes' : 'Login'}
+          </Text>
         </TouchableOpacity>
-      )}
+
+        {isLoggedIn && onLogout && (
+          <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        )}
+
+        {isLoggedIn && (
+          <TouchableOpacity style={styles.cancelButton} onPress={onCancel} disabled={isLoading}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 };
@@ -144,6 +173,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  buttonGroup: {
+    gap: 12,
+    marginTop: 20,
+  },
+  cancelButton: {
+    marginTop: 16,
+    padding: 8,
+  },
+  cancelButtonText: {
+    color: '#999',
+    fontSize: 14,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
 });
 
