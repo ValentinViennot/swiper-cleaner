@@ -1,4 +1,4 @@
-import type { AppBskyFeedPost } from '@atproto/api';
+import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 import { AntDesign } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -222,16 +222,79 @@ const App = () => {
     }
   };
 
+  const canLoadPosts = useCallback(() => {
+    return !!(credentials.username && credentials.appPassword && !showConfig && !isLoggingIn);
+  }, [credentials.username, credentials.appPassword, showConfig, isLoggingIn]);
+
+  const fetchAndFilterPosts = useCallback(
+    async (resetCursor: boolean) => {
+      await blueskyService.login(credentials.username, credentials.appPassword);
+      const { feed: userPostsResponse, hasMore } = await blueskyService.getUserPosts(resetCursor);
+
+      console.log(`[Posts] Received ${userPostsResponse.length} raw posts, hasMore: ${hasMore}`);
+      console.log(JSON.stringify(userPostsResponse));
+
+      setHasMorePosts(hasMore);
+
+      const filteredUris = new Set([
+        ...Array.from(triagedPosts.keys()),
+        ...deletionQueue.map(item => item.uri),
+      ]);
+
+      console.log(`[Posts] Filtering out ${filteredUris.size} URIs`);
+
+      return userPostsResponse
+        .map(post => ({
+          ...post.post,
+          reply: post.reply
+            ? {
+                parent:
+                  post.reply.parent.$type === 'app.bsky.feed.defs#postView'
+                    ? (post.reply.parent as AppBskyFeedDefs.PostView)
+                    : undefined,
+                root:
+                  post.reply.root?.$type === 'app.bsky.feed.defs#postView'
+                    ? (post.reply.root as AppBskyFeedDefs.PostView)
+                    : undefined,
+              }
+            : undefined,
+          isRepost: post.reason?.$type === 'app.bsky.feed.defs#reasonRepost',
+        }))
+        .map(post => ({
+          ...post,
+          type: (post.record as { $type: string }).$type,
+          record: post.record as AppBskyFeedPost.Record,
+          cardUri: (post.isRepost ? post.viewer!.repost! : post.uri).toLowerCase(),
+        }))
+        .filter(post => {
+          const shouldFilter =
+            filteredUris.has(post.cardUri) ||
+            (!showReposts && post.isRepost) ||
+            post.type !== 'app.bsky.feed.post';
+
+          if (shouldFilter) {
+            console.log(
+              `[Posts] Filtering out post: ${post.cardUri} (${
+                filteredUris.has(post.cardUri)
+                  ? 'already processed'
+                  : !showReposts && post.isRepost
+                    ? 'repost filtered'
+                    : 'not a post'
+              })`,
+            );
+            return false;
+          }
+          return true;
+        });
+    },
+    [credentials.username, credentials.appPassword, showReposts, triagedPosts, deletionQueue],
+  );
+
   // Post Loading
   const loadPosts = useCallback(
-    async (resetCursor = false) => {
-      if (isLoading.current) {
-        console.log('[Posts] Already loading posts, skipping');
-        return false;
-      }
-
-      if (!credentials.username || !credentials.appPassword || showConfig || isLoggingIn) {
-        console.log('[Posts] Skipping post load - missing credentials or showing config');
+    async (resetCursor = false): Promise<boolean> => {
+      if (isLoading.current || !canLoadPosts()) {
+        console.log('[Posts] Skipping load - already loading or missing requirements');
         return false;
       }
 
@@ -241,62 +304,24 @@ const App = () => {
       setIsComplete(false);
 
       try {
-        await blueskyService.login(credentials.username, credentials.appPassword);
-        const { feed: userPostsResponse, hasMore } = await blueskyService.getUserPosts(resetCursor);
-        console.log(`[Posts] Received ${userPostsResponse.length} raw posts, hasMore: ${hasMore}`);
-        setHasMorePosts(hasMore);
-
-        // Create a Set of all URIs we want to filter out (both triaged and queued for deletion)
-        const filteredUris = new Set([
-          ...Array.from(triagedPosts.keys()),
-          ...deletionQueue.map(item => item.uri),
-        ]);
-
-        console.log(`[Posts] Filtering out ${filteredUris.size} URIs`);
-
-        const filteredPosts = userPostsResponse
-          .map(post => ({
-            ...post.post,
-            isRepost: post.reason?.$type === 'app.bsky.feed.defs#reasonRepost',
-          }))
-          .map(post => ({
-            ...post,
-            type: (post.record as { $type: string }).$type,
-            record: post.record as AppBskyFeedPost.Record,
-            cardUri: (post.isRepost ? post.viewer!.repost! : post.uri).toLowerCase(),
-          }))
-          .filter(post => {
-            const shouldFilter =
-              filteredUris.has(post.cardUri) ||
-              (!showReposts && post.isRepost) ||
-              post.type !== 'app.bsky.feed.post';
-
-            if (shouldFilter) {
-              console.log(
-                `[Posts] Filtering out post: ${post.cardUri} (${
-                  filteredUris.has(post.cardUri)
-                    ? 'already processed'
-                    : !showReposts && post.isRepost
-                      ? 'repost filtered'
-                      : 'not a post'
-                })`,
-              );
-              return false;
-            }
-            return true;
-          });
-
-        console.log(`[Posts] Loaded ${filteredPosts.length} posts into state`);
-
-        if (filteredPosts.length === 0 && !hasMore) {
-          console.log('[Posts] No posts remaining after filtering, marking as complete');
-          setIsComplete(true);
-          return false;
+        const posts = await fetchAndFilterPosts(resetCursor);
+        isLoading.current = false;
+        if (posts.length === 0) {
+          if (hasMorePosts) {
+            console.log('[Posts] No posts after filtering, loading more...');
+            return loadPosts(false);
+          } else {
+            console.log('[Posts] No posts remaining after filtering and no more available');
+            setIsLoadingPosts(false);
+            setIsComplete(true);
+            return false;
+          }
         }
 
-        setPosts(filteredPosts);
+        setPosts(posts);
         setIsComplete(false);
         setIsInitialized(true);
+        setIsLoadingPosts(false);
         return true;
       } catch (error) {
         console.error('[Posts] Error loading posts:', error);
@@ -304,19 +329,9 @@ const App = () => {
         return false;
       } finally {
         isLoading.current = false;
-        setIsLoadingPosts(false);
       }
     },
-    [
-      credentials.username,
-      credentials.appPassword,
-      showConfig,
-      isLoggingIn,
-      showReposts,
-      triagedPosts,
-      deletionQueue,
-      clearCredentials,
-    ],
+    [canLoadPosts, fetchAndFilterPosts, hasMorePosts, clearCredentials],
   );
 
   const renderCard = useCallback(

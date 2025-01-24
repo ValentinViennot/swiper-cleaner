@@ -5,6 +5,10 @@ export type PostData = PostView & {
   record: AppBskyFeedPost.Record;
   cardUri: string;
   isRepost?: boolean;
+  reply?: {
+    parent: PostView;
+    root: PostView;
+  };
 };
 export type TriagedPostsMap = Map<string, string>; // <uri, timestamp>
 

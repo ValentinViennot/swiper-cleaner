@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { theme } from './theme';
 
-const { spacing, radius, colors, shadow } = theme;
+const { spacing, radius, colors } = theme;
 
 export const cardStyles = StyleSheet.create({
   authorContainer: {
@@ -18,7 +18,10 @@ export const cardStyles = StyleSheet.create({
     width: 44,
   },
   cardContent: {
+    display: 'flex',
     flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
     padding: spacing.lg,
   },
   dateText: {
@@ -35,10 +38,13 @@ export const cardStyles = StyleSheet.create({
     fontSize: 14,
   },
   imageContainer: {
+    alignItems: 'center',
     borderRadius: radius.lg,
+    flexShrink: 1,
     flex: 1,
+    justifyContent: 'center',
     marginVertical: spacing.md,
-    minHeight: 0,
+    minHeight: 200,
     overflow: 'hidden',
     position: 'relative',
     width: '100%',
@@ -46,6 +52,20 @@ export const cardStyles = StyleSheet.create({
   linkText: {
     color: colors.secondary,
     textDecorationLine: 'none',
+  },
+  mediaCounter: {
+    backgroundColor: colors.overlayDark,
+    borderRadius: radius.md,
+    bottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    position: 'absolute',
+    right: spacing.sm,
+  },
+  mediaCounterText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '600',
   },
   overlayLabelContainer: {
     borderRadius: radius.xl,
@@ -62,17 +82,13 @@ export const cardStyles = StyleSheet.create({
     borderTopWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 'auto',
+    marginTop: spacing.md,
     paddingTop: spacing.md,
   },
   postImage: {
-    bottom: 0,
+    flex: 1,
     height: '100%',
-    left: 0,
-    position: 'absolute',
-    resizeMode: 'cover',
-    right: 0,
-    top: 0,
+    minHeight: 150,
     width: '100%',
   },
   postText: {
@@ -98,7 +114,10 @@ export const cardStyles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     borderWidth: 1,
+    display: 'flex',
+    flex: 1,
     marginVertical: spacing.md,
+    minHeight: 0,
     overflow: 'hidden',
     padding: spacing.md,
   },
@@ -119,6 +138,7 @@ export const cardStyles = StyleSheet.create({
   renderCardContainer: {
     backgroundColor: colors.white,
     borderRadius: radius.xl,
+    display: 'flex',
     height: '100%',
     marginBottom: spacing.xl,
     overflow: 'hidden',
@@ -130,6 +150,12 @@ export const cardStyles = StyleSheet.create({
     position: 'absolute',
     right: spacing.lg,
     top: spacing.lg,
+  },
+  scrollableContent: {
+    display: 'flex',
+    flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
   },
   statText: {
     color: colors.textSecondary,
