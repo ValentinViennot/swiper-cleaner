@@ -25,12 +25,13 @@
     "android": {
       "package": "com.unstaticlabs.swipercleaner",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/adaptive-icon-fg.png",
+        "monochromeImage": "./assets/adaptive-icon-mc.png",
+        "backgroundImage": "./assets/adaptive-icon-bg.png"
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.ico"
     }
   }
 }
