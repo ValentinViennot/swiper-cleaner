@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Swiper cleaner",
+    "name": "Swiper Cleaner",
     "slug": "swiper-cleaner",
     "version": "0.1.1",
     "orientation": "portrait",
@@ -8,8 +8,8 @@
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "resizeMode": "cover",
+      "backgroundColor": "#5CA509"
     },
     "assetBundlePatterns": [
       "**/*"
