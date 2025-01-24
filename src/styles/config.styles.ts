@@ -1,28 +1,26 @@
-import { StyleSheet, Platform, StatusBar } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { theme } from './theme';
 
-const { colors, spacing, radius, shadow } = theme;
-
-const STATUSBAR_HEIGHT = Platform.OS === 'ios' ? 47 : StatusBar.currentHeight || 0;
+const { colors, spacing, radius, shadow, layout, typography } = theme;
 
 export const styles = StyleSheet.create({
   backButton: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.xs,
-    height: 44,
+    height: layout.headerHeight,
     paddingHorizontal: spacing.lg,
   },
   backButtonText: {
     color: colors.textSecondary,
-    fontSize: 17,
-    fontWeight: '500',
+    fontSize: typography.size.xl,
+    fontWeight: typography.weight.normal,
   },
   button: {
     alignItems: 'center',
     backgroundColor: colors.primary,
     borderRadius: radius.md,
-    height: 48,
+    height: layout.buttonHeight,
     justifyContent: 'center',
   },
   buttonDisabled: {
@@ -30,8 +28,8 @@ export const styles = StyleSheet.create({
   },
   buttonText: {
     color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.medium,
   },
   container: {
     backgroundColor: colors.background,
@@ -57,24 +55,22 @@ export const styles = StyleSheet.create({
   },
   footerDivider: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: typography.size.xs,
   },
   footerLink: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: typography.size.xs,
     textDecorationLine: 'underline',
   },
   header: {
     alignItems: 'center',
     backgroundColor: colors.background,
     flexDirection: 'row',
-    height: STATUSBAR_HEIGHT + 44,
     justifyContent: 'space-between',
-    paddingTop: STATUSBAR_HEIGHT,
   },
   helperText: {
     color: colors.textTertiary,
-    fontSize: 13,
+    fontSize: typography.size.sm,
     marginTop: spacing.xs,
   },
   inlineInputContainer: {
@@ -87,8 +83,8 @@ export const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     color: colors.textPrimary,
-    fontSize: 15,
-    height: 44,
+    fontSize: typography.size.md,
+    height: layout.headerHeight,
     paddingHorizontal: spacing.md,
   },
   inputContainer: {
@@ -96,27 +92,27 @@ export const styles = StyleSheet.create({
   },
   label: {
     color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.medium,
     marginBottom: spacing.xs,
   },
   logoutButton: {
     alignItems: 'center',
     backgroundColor: colors.danger,
     borderRadius: radius.md,
-    height: 48,
+    height: layout.smallButtonHeight,
     justifyContent: 'center',
     marginTop: spacing.lg,
   },
   logoutButtonText: {
     color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.medium,
   },
   picker: {
     backgroundColor: colors.transparent,
     color: colors.textPrimary,
-    height: 44,
+    height: layout.headerHeight,
     width: 120,
   },
   pickerContainer: {
@@ -129,8 +125,8 @@ export const styles = StyleSheet.create({
   },
   pickerItem: {
     color: colors.textPrimary,
-    fontSize: 15,
-    height: 44,
+    fontSize: typography.size.md,
+    height: layout.headerHeight,
   },
   resetButton: {
     alignItems: 'center',
@@ -142,8 +138,8 @@ export const styles = StyleSheet.create({
   },
   resetButtonText: {
     color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.medium,
   },
   saveButton: {
     alignItems: 'center',
@@ -151,7 +147,7 @@ export const styles = StyleSheet.create({
     borderRadius: radius.full,
     flexDirection: 'row',
     gap: spacing.xs,
-    height: 36,
+    height: layout.smallButtonHeight,
     justifyContent: 'center',
     marginRight: spacing.lg,
     paddingHorizontal: spacing.lg,
@@ -159,8 +155,8 @@ export const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: colors.white,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.medium,
     letterSpacing: -0.2,
   },
   settingsGroup: {
@@ -169,14 +165,14 @@ export const styles = StyleSheet.create({
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '600',
+    fontSize: typography.size.xxl,
+    fontWeight: typography.weight.medium,
     marginBottom: spacing.xl,
   },
   toggleContainer: {
     alignItems: 'center',
     flexDirection: 'row',
-    height: 44,
+    height: layout.headerHeight,
     justifyContent: 'space-between',
   },
   toggleLabel: {
@@ -185,6 +181,6 @@ export const styles = StyleSheet.create({
   },
   unitText: {
     color: colors.textSecondary,
-    fontSize: 15,
+    fontSize: typography.size.base,
   },
 });

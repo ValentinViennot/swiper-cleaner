@@ -1,7 +1,7 @@
 import { Platform, StyleSheet } from 'react-native';
 import { theme } from './theme';
 
-const { spacing, radius, colors, shadow, layout } = theme;
+const { spacing, radius, colors, shadow, layout, typography, opacity } = theme;
 
 export const styles = StyleSheet.create({
   button: {
@@ -11,18 +11,18 @@ export const styles = StyleSheet.create({
     borderRadius: radius.full,
     flex: 1,
     justifyContent: 'center',
-    maxWidth: 56,
-    minWidth: 48,
+    maxWidth: layout.bigButtonHeight,
+    minWidth: layout.smallButtonHeight,
     ...shadow.base,
   },
   buttonDisabled: {
     backgroundColor: colors.textTertiary,
-    opacity: 0.5,
+    opacity: opacity.high,
   },
   buttonText: {
     color: colors.textWhite,
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.medium,
   },
   buttonsContainer: {
     alignItems: 'center',
@@ -39,14 +39,16 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
-    marginTop: -spacing.md,
     paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
   cardStyle: {
     alignSelf: 'center',
     backgroundColor: colors.white,
     borderRadius: radius.lg,
-    height: layout.windowHeight * 0.75,
+    flex: 1,
+    height: layout.windowHeight - layout.headerHeight - layout.bigButtonHeight,
+    maxHeight: layout.windowHeight * 0.75,
     width: layout.windowWidth - spacing.xl * 2,
     ...shadow.base,
   },
@@ -59,15 +61,15 @@ export const styles = StyleSheet.create({
   },
   completeSubtext: {
     color: colors.textSecondary,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: typography.size.lg,
+    lineHeight: typography.lineHeight.base,
     marginBottom: spacing.xl,
     textAlign: 'center',
   },
   completeText: {
     color: colors.primary,
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: typography.size.display,
+    fontWeight: typography.weight.bold,
     marginBottom: spacing.md,
   },
   confirmButton: {
@@ -77,8 +79,8 @@ export const styles = StyleSheet.create({
   },
   confirmButtonText: {
     color: colors.textWhite,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.medium,
   },
   container: {
     backgroundColor: colors.background,
@@ -97,7 +99,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
     flexDirection: 'row',
-    height: 44,
+    height: layout.headerHeight,
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     width: '100%',
@@ -105,7 +107,7 @@ export const styles = StyleSheet.create({
   headerContent: {
     alignItems: 'center',
     flexDirection: 'row',
-    height: 44,
+    height: layout.headerHeight,
     justifyContent: 'space-between',
     marginTop: Platform.OS === 'ios' ? 0 : 4,
     paddingHorizontal: spacing.lg,
@@ -131,9 +133,13 @@ export const styles = StyleSheet.create({
   },
   loadingText: {
     color: colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.medium,
     marginTop: spacing.md,
+  },
+  mainContentContainer: {
+    flex: 1,
+    paddingBottom: spacing.xxxl * 2,
   },
   overlayHidden: {
     display: 'none',
@@ -154,10 +160,10 @@ export const styles = StyleSheet.create({
   },
   overlayText: {
     color: colors.textWhite,
-    fontSize: 42,
-    fontWeight: '800',
+    fontSize: typography.size.hero,
+    fontWeight: typography.weight.bold,
     letterSpacing: 2,
-    opacity: 0.95,
+    opacity: opacity.overlay,
     textTransform: 'uppercase',
   },
   refreshButton: {
@@ -168,8 +174,8 @@ export const styles = StyleSheet.create({
   },
   refreshButtonText: {
     color: colors.textWhite,
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.medium,
   },
   safeArea: {
     backgroundColor: colors.background,
@@ -194,8 +200,8 @@ export const styles = StyleSheet.create({
   userInfoText: {
     color: colors.textSecondary,
     flexShrink: 1,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: typography.size.md,
+    fontWeight: typography.weight.medium,
     marginRight: spacing.xs,
   },
 });

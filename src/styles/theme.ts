@@ -3,7 +3,7 @@
  * You can adjust these values to match your brand's look and feel.
  */
 
-import { Dimensions } from 'react-native';
+import { Dimensions, Platform, StatusBar } from 'react-native';
 
 const { width: windowWidth, height: windowHeight } = Dimensions.get('window');
 
@@ -11,6 +11,13 @@ export const theme = {
   layout: {
     windowWidth,
     windowHeight,
+    headerHeight: 44,
+    buttonHeight: 48,
+    smallButtonHeight: 36,
+    bigButtonHeight: 56,
+    avatarSize: 44,
+    smallAvatarSize: 32,
+    statusBarHeight: Platform.OS === 'ios' ? 47 : StatusBar.currentHeight || 0,
   },
   spacing: {
     xs: 4,
@@ -70,5 +77,35 @@ export const theme = {
       shadowRadius: 4,
       elevation: 2,
     },
+  },
+  typography: {
+    size: {
+      xs: 12,
+      sm: 13,
+      base: 14,
+      md: 15,
+      lg: 16,
+      xl: 17,
+      xxl: 22,
+      display: 28,
+      hero: 42,
+    },
+    lineHeight: {
+      tight: 18,
+      base: 22,
+    },
+    weight: {
+      normal: 400 as const,
+      medium: 600 as const,
+      bold: 800 as const,
+    },
+  },
+  opacity: {
+    light: 0.08,
+    medium: 0.45,
+    high: 0.5,
+    full: 0.85,
+    subtle: 0.7,
+    overlay: 0.95,
   },
 };

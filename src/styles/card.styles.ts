@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { theme } from './theme';
 
-const { spacing, radius, colors } = theme;
+const { spacing, radius, colors, layout, typography } = theme;
 
 export const cardStyles = StyleSheet.create({
   authorContainer: {
@@ -16,8 +16,8 @@ export const cardStyles = StyleSheet.create({
   },
   avatar: {
     borderRadius: radius.full,
-    height: 44,
-    width: 44,
+    height: layout.avatarSize,
+    width: layout.avatarSize,
   },
   cardContent: {
     display: 'flex',
@@ -28,16 +28,16 @@ export const cardStyles = StyleSheet.create({
   },
   dateText: {
     color: colors.textTertiary,
-    fontSize: 14,
+    fontSize: typography.size.base,
   },
   displayName: {
     color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.size.lg,
+    fontWeight: typography.weight.medium,
   },
   handle: {
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: typography.size.base,
   },
   imageContainer: {
     alignItems: 'center',
@@ -66,8 +66,8 @@ export const cardStyles = StyleSheet.create({
   },
   mediaCounterText: {
     color: colors.white,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.size.xs,
+    fontWeight: typography.weight.medium,
   },
   overlayLabelContainer: {
     borderRadius: radius.xl,
@@ -95,14 +95,14 @@ export const cardStyles = StyleSheet.create({
   },
   postText: {
     color: colors.textPrimary,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: typography.size.lg,
+    lineHeight: typography.lineHeight.base,
     marginBottom: spacing.md,
   },
   quoteAuthorAvatar: {
     borderRadius: radius.sm,
-    height: 32,
-    width: 32,
+    height: layout.smallAvatarSize,
+    width: layout.smallAvatarSize,
   },
   quoteAuthorContainer: {
     alignItems: 'center',
@@ -127,30 +127,29 @@ export const cardStyles = StyleSheet.create({
   },
   quoteDisplayName: {
     color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: typography.size.base,
+    fontWeight: typography.weight.medium,
   },
   quoteHandle: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: typography.size.xs,
   },
   quoteText: {
     color: colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: typography.size.base,
+    lineHeight: typography.lineHeight.tight,
   },
   renderCardContainer: {
     backgroundColor: colors.white,
     borderRadius: radius.xl,
     display: 'flex',
-    height: '100%',
-    marginBottom: spacing.xl,
+    flex: 1,
     overflow: 'hidden',
     width: '100%',
   },
   repostIndicator: {
     color: colors.textTertiary,
-    fontSize: 13,
+    fontSize: typography.size.sm,
     position: 'absolute',
     right: spacing.lg,
     top: spacing.lg,
@@ -163,7 +162,7 @@ export const cardStyles = StyleSheet.create({
   },
   statText: {
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: typography.size.base,
   },
   statsContainer: {
     alignItems: 'flex-end',
