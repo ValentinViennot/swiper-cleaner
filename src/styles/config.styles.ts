@@ -55,6 +55,22 @@ export const styles = StyleSheet.create({
     right: 0,
     top: 0,
   },
+  footer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  footerDivider: {
+    color: colors.lightGray,
+    fontSize: 12,
+  },
+  footerLink: {
+    color: colors.lightGray,
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
   inlineInputContainer: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -121,24 +137,5 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 20,
     paddingHorizontal: 4,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  footerLink: {
-    color: colors.lightGray,
-    fontSize: 12,
-    textDecorationLine: 'underline',
-  },
-  footerDivider: {
-    color: colors.lightGray,
-    fontSize: 12,
   },
 });
