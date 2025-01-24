@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 import { AntDesign } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -37,31 +38,30 @@ const { colors } = theme;
 const App = () => {
   const [posts, setPosts] = useState<PostData[]>([]);
   const [showReposts, setShowReposts] = useState(true);
-  const [triagedPosts, setTriagedPosts] = useState<TriagedPostsMap>(new Map());
   const [reviewInterval, setReviewInterval] = useState(30);
+  const [triagedPosts, setTriagedPosts] = useState<TriagedPostsMap>(new Map());
+  const [deletionQueue, setDeletionQueue] = useState<Array<{ uri: string; isRepost: boolean }>>([]);
   const [credentials, setCredentials] = useState({
     username: '',
     appPassword: '',
   });
+
   const [showConfig, setShowConfig] = useState(true);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [deletionQueue, setDeletionQueue] = useState<Array<{ uri: string; isRepost: boolean }>>([]);
-  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [initializationComplete, setInitializationComplete] = useState(false);
+
   const [isAppReady, setIsAppReady] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
 
-  // Refs
   const ref = useRef<SwiperCardRefType>();
-  const isLoading = useRef(false);
   const swipeMutex = useRef(new Mutex());
-  const initializationComplete = useRef(false);
-  const needsReload = useRef(false);
 
-  // Storage Helpers
-  const loadTriagedPosts = async () => {
+  const loadTriagedPosts = useCallback(async () => {
     console.log('[Storage] Loading triaged posts from AsyncStorage');
     try {
       const allKeys = await AsyncStorage.getAllKeys();
@@ -87,7 +87,7 @@ const App = () => {
     } catch (error) {
       console.error('[Storage] Error loading triaged posts:', error);
     }
-  };
+  }, [setTriagedPosts, setReviewInterval]);
 
   const addTriagedPost = useCallback(
     async (uri: string) => {
@@ -194,11 +194,11 @@ const App = () => {
   ) => {
     console.log('[Config] Saving new configuration');
     try {
+      setIsLoggingIn(true);
       if (!username || !appPassword) {
         throw new Error('Username and password are required');
       }
 
-      setIsLoggingIn(true);
       console.log('[Config] Attempting login with new credentials');
       await blueskyService.login(username, appPassword);
       console.log('[Config] Login successful');
@@ -212,8 +212,12 @@ const App = () => {
       setCredentials({ username, appPassword });
       setShowReposts(showReposts);
       setReviewInterval(reviewInterval);
+      setPosts([]);
+      setIsComplete(false);
+      setIsInitialized(false);
+
       setShowConfig(false);
-      needsReload.current = true;
+      await loadPosts(true);
     } catch (error) {
       console.error('[Config] Login failed:', error);
       Alert.alert('Login failed. Please check your credentials and try again.');
@@ -232,7 +236,7 @@ const App = () => {
       const { feed: userPostsResponse, hasMore } = await blueskyService.getUserPosts(resetCursor);
 
       console.log(`[Posts] Received ${userPostsResponse.length} raw posts, hasMore: ${hasMore}`);
-      console.log(JSON.stringify(userPostsResponse));
+      // console.log(JSON.stringify(userPostsResponse));
 
       setHasMorePosts(hasMore);
 
@@ -287,51 +291,55 @@ const App = () => {
           return true;
         });
     },
-    [credentials.username, credentials.appPassword, showReposts, triagedPosts, deletionQueue],
+    [
+      credentials.username,
+      credentials.appPassword,
+      showReposts,
+      triagedPosts,
+      deletionQueue,
+      setHasMorePosts,
+    ],
   );
 
   // Post Loading
   const loadPosts = useCallback(
-    async (resetCursor = false): Promise<boolean> => {
-      if (isLoading.current || !canLoadPosts()) {
+    async (resetCursor = false, byPassLoading = false): Promise<boolean> => {
+      if ((isLoading && !byPassLoading) || !canLoadPosts()) {
         console.log('[Posts] Skipping load - already loading or missing requirements');
         return false;
       }
 
       console.log('[Posts] Starting to load posts');
-      isLoading.current = true;
-      setIsLoadingPosts(true);
+      setIsLoading(true);
       setIsComplete(false);
 
       try {
         const posts = await fetchAndFilterPosts(resetCursor);
-        isLoading.current = false;
         if (posts.length === 0) {
-          if (hasMorePosts) {
-            console.log('[Posts] No posts after filtering, loading more...');
-            return loadPosts(false);
-          } else {
+          if (!hasMorePosts) {
             console.log('[Posts] No posts remaining after filtering and no more available');
-            setIsLoadingPosts(false);
             setIsComplete(true);
+            setIsLoading(false);
             return false;
+          } else {
+            console.log('[Posts] No posts after filtering, loading more...');
+            return loadPosts(false, true);
           }
         }
 
         setPosts(posts);
         setIsComplete(false);
         setIsInitialized(true);
-        setIsLoadingPosts(false);
         return true;
       } catch (error) {
         console.error('[Posts] Error loading posts:', error);
         await clearCredentials();
         return false;
       } finally {
-        isLoading.current = false;
+        setIsLoading(false);
       }
     },
-    [canLoadPosts, fetchAndFilterPosts, hasMorePosts, clearCredentials],
+    [canLoadPosts, fetchAndFilterPosts, hasMorePosts, clearCredentials, isLoading],
   );
 
   const renderCard = useCallback(
@@ -554,7 +562,6 @@ const App = () => {
       setPosts([]);
       setDeletionQueue([]);
       setCurrentIndex(0);
-      setHasMorePosts(true);
       setIsComplete(false);
       setIsInitialized(false);
       setShowConfig(false);
@@ -579,47 +586,35 @@ const App = () => {
   }, [hasMorePosts]);
 
   useEffect(() => {
-    const initializeApp = async () => {
-      if (initializationComplete.current) {
-        return;
-      }
-
-      console.log('[App] Starting initialization');
-      try {
-        await loadCredentials();
-        await loadTriagedPosts();
-        await cleanExpiredTriagedPosts();
-        setIsAppReady(true);
-        console.log('[App] Initialization complete');
-        initializationComplete.current = true;
-      } catch (error) {
-        console.error('[App] Initialization failed:', error);
-      }
-    };
-
-    initializeApp();
-  }, [cleanExpiredTriagedPosts]);
+    if (initializationComplete || isInitializing) {
+      return;
+    }
+    console.log('[App] Starting initialization');
+    setIsInitializing(true);
+    loadCredentials()
+      .then(() => loadTriagedPosts())
+      .then(() => cleanExpiredTriagedPosts())
+      .then(() => setIsAppReady(true))
+      .then(() => console.log('[App] Initialization complete'))
+      .then(() => setInitializationComplete(true))
+      .catch(error => console.error('[App] Initialization failed:', error))
+      .finally(() => setIsInitializing(false));
+  }, [initializationComplete, cleanExpiredTriagedPosts, isInitializing, loadTriagedPosts]);
 
   useEffect(() => {
-    if (isAppReady && !isInitialized && !showConfig && !isComplete && !isLoading.current) {
+    if (
+      isAppReady &&
+      !isInitialized &&
+      !showConfig &&
+      !isComplete &&
+      !isLoading &&
+      !isInitializing
+    ) {
       console.log('[Effect] Loading initial posts - app is ready');
-      loadPosts(true);
+      setIsLoading(true);
+      loadPosts(true, true).then(() => setIsLoading(false));
     }
-  }, [isAppReady, isInitialized, showConfig, isComplete, loadPosts]);
-
-  useEffect(() => {
-    if (isAppReady && !showConfig && needsReload.current) {
-      console.log('[Effect] Reloading posts due to showReposts change');
-      needsReload.current = false;
-      setPosts([]);
-      setIsComplete(false);
-      setIsInitialized(false);
-
-      setTimeout(() => {
-        loadPosts(true);
-      }, 100);
-    }
-  }, [isAppReady, showConfig, loadPosts]);
+  }, [isAppReady, isInitialized, showConfig, isComplete, loadPosts, isLoading, isInitializing]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -655,7 +650,7 @@ const App = () => {
       </View>
 
       <GestureHandlerRootView style={styles.container}>
-        {isLoadingPosts ? (
+        {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#2196F3" />
             <Text style={styles.loadingText}>Loading posts...</Text>
