@@ -6,11 +6,11 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  SafeAreaView,
+  StatusBar,
   Text,
   TouchableOpacity,
   View,
-  SafeAreaView,
-  StatusBar,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger } from 'react-native-reanimated';
@@ -19,6 +19,7 @@ import { Swiper, type SwiperCardRefType } from 'rn-swiper-list';
 import ActionButton from './components/ActionButton';
 import ConfigurationScreen from './components/ConfigurationScreen';
 import { MemoizedCard } from './components/MemoizedCard';
+import OverlayLabel from './components/OverlayLabel';
 import { SPRING_CONFIG, STORAGE_KEYS } from './constants/storage';
 import { BlueSkyService } from './services/bluesky';
 import { styles } from './styles/app.styles';
@@ -344,20 +345,10 @@ const App = () => {
     [],
   );
 
-  // Overlay Labels
   const createOverlayLabel = useCallback((text: string, color: string) => {
-    const OverlayLabel = () => (
-      <View
-        style={[
-          styles.overlayLabelContainer,
-          styles.overlayLabelAlignment,
-          { backgroundColor: color },
-        ]}>
-        <Text style={styles.overlayText}>{text}</Text>
-      </View>
-    );
-    OverlayLabel.displayName = `OverlayLabel${text}`;
-    return OverlayLabel;
+    const Label = () => <OverlayLabel text={text} color={color} />;
+    Label.displayName = `OverlayLabel${text}`;
+    return Label;
   }, []);
 
   const OverlayLabelRight = createOverlayLabel('KEEP', colors.overlayLike);
