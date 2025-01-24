@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import type { AppBskyEmbedImages, AppBskyEmbedVideo } from '@atproto/api';
 import React, { useCallback } from 'react';
 import { Image, Text, View, Linking, TouchableOpacity } from 'react-native';
@@ -133,7 +134,7 @@ const Card = ({ postData, isRepost }: CardProps) => {
 
   return (
     <View style={cardStyles.renderCardContainer}>
-      {isRepost && <Text style={[cardStyles.repostIndicator, { opacity: 1 }]}>🔄 Repost</Text>}
+      {isRepost && <Text style={cardStyles.repostIndicator}>🔄 Repost</Text>}
       <View style={cardStyles.cardContent}>
         <View style={cardStyles.authorContainer}>
           <Image source={{ uri: postData.author.avatar }} style={cardStyles.avatar} />
@@ -154,7 +155,13 @@ const Card = ({ postData, isRepost }: CardProps) => {
         <View style={cardStyles.postFooter}>
           <TouchableOpacity onPress={() => openInBlueSky(postData.uri)}>
             <Text style={[cardStyles.dateText, cardStyles.linkText]}>
-              {new Date(postData.record.createdAt).toLocaleString()}
+              {new Date(postData.record.createdAt).toLocaleString(undefined, {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric',
+              })}
             </Text>
           </TouchableOpacity>
           {renderPostStats(postData)}

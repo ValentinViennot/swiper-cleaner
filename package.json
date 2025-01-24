@@ -13,11 +13,13 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
     "prebuild": "expo prebuild",
-    "build:android": "expo prebuild && cd android && ./gradlew assembleDebug"
+    "build:android": "expo prebuild && cd android && ./gradlew assembleDebug && ./gradlew assembleRelease"
   },
   "dependencies": {
     "@atproto/api": "^0.13.30",
     "@react-native-async-storage/async-storage": "^2.1.0",
+    "@react-native-picker/picker": "^2.11.0",
+    "@react-navigation/native": "^7.0.14",
     "expo": "^52.0.27",
     "expo-crypto": "~14.0.2",
     "expo-status-bar": "~2.0.1",

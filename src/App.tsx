@@ -2,7 +2,16 @@ import type { AppBskyFeedPost } from '@atproto/api';
 import { AntDesign } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Text,
+  TouchableOpacity,
+  View,
+  SafeAreaView,
+  StatusBar,
+} from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger } from 'react-native-reanimated';
 import { Swiper, type SwiperCardRefType } from 'rn-swiper-list';
@@ -12,7 +21,8 @@ import ConfigurationScreen from './components/ConfigurationScreen';
 import { MemoizedCard } from './components/MemoizedCard';
 import { SPRING_CONFIG, STORAGE_KEYS } from './constants/storage';
 import { BlueSkyService } from './services/bluesky';
-import { styles, windowHeight, windowWidth } from './styles/app.styles';
+import { styles } from './styles/app.styles';
+import { theme } from './styles/theme';
 import type { PostData, TriagedPostsMap } from './types/post';
 import { Mutex } from './utils/Mutex';
 
@@ -22,6 +32,7 @@ configureReanimatedLogger({
 
 const ICON_SIZE = 24;
 const blueskyService = new BlueSkyService();
+const { colors } = theme;
 
 const App = () => {
   const [posts, setPosts] = useState<PostData[]>([]);
@@ -329,10 +340,10 @@ const App = () => {
     return OverlayLabel;
   }, []);
 
-  const OverlayLabelRight = createOverlayLabel('KEEP', 'green');
-  const OverlayLabelLeft = createOverlayLabel('DELETE', 'red');
-  const OverlayLabelTop = createOverlayLabel('REPOST', 'blue');
-  const OverlayLabelBottom = createOverlayLabel('SNOOZE', 'orange');
+  const OverlayLabelRight = createOverlayLabel('KEEP', colors.overlayLike);
+  const OverlayLabelLeft = createOverlayLabel('DELETE', colors.overlayNope);
+  const OverlayLabelTop = createOverlayLabel('REPOST', colors.primary);
+  const OverlayLabelBottom = createOverlayLabel('SNOOZE', colors.warning);
 
   const handleDeleteSwipe = useCallback(
     async (post: PostData) => {
@@ -440,20 +451,22 @@ const App = () => {
     ],
   );
 
-  const removeFromTriaged = async (uri: string) => {
-    console.log(`[Storage] Removing post from triage: ${uri}`);
-    const normalizedUri = uri.toLowerCase();
-
-    try {
-      await AsyncStorage.removeItem(STORAGE_KEYS.TRIAGED_PREFIX + normalizedUri);
-      const updatedPosts = new Map(triagedPosts);
-      updatedPosts.delete(normalizedUri);
-      setTriagedPosts(updatedPosts);
-      console.log('[Storage] Successfully removed post from triage');
-    } catch (error) {
-      console.error('[Storage] Error removing post from triage:', error);
-    }
-  };
+  const removeFromTriaged = useCallback(
+    async (uri: string) => {
+      console.log(`[Storage] Removing post from triage: ${uri}`);
+      const normalizedUri = uri.toLowerCase();
+      try {
+        await AsyncStorage.removeItem(STORAGE_KEYS.TRIAGED_PREFIX + normalizedUri);
+        const updatedPosts = new Map(triagedPosts);
+        updatedPosts.delete(normalizedUri);
+        setTriagedPosts(updatedPosts);
+        console.log('[Storage] Successfully removed post from triage');
+      } catch (error) {
+        console.error('[Storage] Error removing post from triage:', error);
+      }
+    },
+    [triagedPosts, setTriagedPosts],
+  );
 
   const rewindToPreviousPost = useCallback(async () => {
     if (currentIndex > 0) {
@@ -465,7 +478,7 @@ const App = () => {
       }
       ref.current?.swipeBack();
     }
-  }, [currentIndex, posts]);
+  }, [currentIndex, posts, removeFromTriaged]);
 
   const handleButtonPress = useCallback(
     (action: string) => {
@@ -570,7 +583,7 @@ const App = () => {
     };
 
     initializeApp();
-  }, []);
+  }, [cleanExpiredTriagedPosts]);
 
   useEffect(() => {
     if (isAppReady && !isInitialized && !showConfig && !isComplete && !isLoading.current) {
@@ -594,95 +607,126 @@ const App = () => {
   }, [isAppReady, showConfig, loadPosts]);
 
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       <View style={styles.header}>
-        {credentials.username && !showConfig ? (
-          <TouchableOpacity style={styles.userInfo} onPress={() => setShowConfig(true)}>
-            <Text style={styles.userInfoText}>@{credentials.username}</Text>
-            <AntDesign name="setting" size={16} color="#999" style={styles.settingsIcon} />
-          </TouchableOpacity>
-        ) : null}
+        <View style={styles.headerLeft}>
+          {!showConfig && deletionQueue.length > 0 ? (
+            <TouchableOpacity style={styles.confirmButton} onPress={processDeletionQueue}>
+              <Text style={styles.confirmButtonText}>DELETE ({deletionQueue.length})</Text>
+            </TouchableOpacity>
+          ) : !showConfig ? (
+            <TouchableOpacity
+              style={styles.donateButton}
+              onPress={() =>
+                Linking.openURL(
+                  'https://polar.sh/smashchats/products/85592438-13d5-4310-ab04-bc77aa9adc69',
+                )
+              }>
+              <Text>❤️ Donate</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        <TouchableOpacity style={styles.headerRight} onPress={() => setShowConfig(true)}>
+          <Text style={styles.userInfoText}>{credentials.username}</Text>
+          <AntDesign
+            name="setting"
+            size={24}
+            color={colors.textSecondary}
+            style={styles.settingsIcon}
+          />
+        </TouchableOpacity>
       </View>
 
-      {isLoadingPosts ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
-          <Text style={styles.loadingText}>Loading posts...</Text>
-        </View>
-      ) : isComplete ? (
-        <View style={styles.completeContainer}>
-          {deletionQueue.length > 0 ? (
-            <>
-              <Text style={styles.completeText}>Almost done!</Text>
-              <Text style={styles.completeSubtext}>
-                Don&apos;t forget to confirm deletion of {deletionQueue.length} post
-                {deletionQueue.length !== 1 ? 's' : ''}
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.completeText}>All done! 🎉</Text>
-              <Text style={styles.completeSubtext}>
-                {reviewInterval > 0
-                  ? `Come back in ${reviewInterval} days to review more posts`
-                  : 'No more posts to review'}
-              </Text>
-              <TouchableOpacity style={styles.refreshButton} onPress={() => loadPosts(true)}>
-                <Text style={styles.refreshButtonText}>Check Again</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      ) : (
-        <>
-          <View style={styles.subContainer}>
-            <Swiper
-              ref={ref}
-              cardStyle={styles.cardStyle}
-              data={posts}
-              renderCard={renderCard}
-              onIndexChange={index => setCurrentIndex(index)}
-              onSwipeLeft={cardIndex => handleSwipe('left', cardIndex)}
-              onSwipeRight={cardIndex => handleSwipe('right', cardIndex)}
-              onSwipeTop={cardIndex => handleSwipe('up', cardIndex)}
-              onSwipeBottom={cardIndex => handleSwipe('down', cardIndex)}
-              onSwipedAll={handleSwipedAll}
-              OverlayLabelRight={OverlayLabelRight}
-              OverlayLabelLeft={OverlayLabelLeft}
-              OverlayLabelTop={OverlayLabelTop}
-              OverlayLabelBottom={OverlayLabelBottom}
-              swipeRightSpringConfig={SPRING_CONFIG}
-              swipeLeftSpringConfig={SPRING_CONFIG}
-              swipeTopSpringConfig={SPRING_CONFIG}
-              swipeBottomSpringConfig={SPRING_CONFIG}
-              inputOverlayLabelRightOpacityRange={[0, windowWidth / 2]}
-              outputOverlayLabelRightOpacityRange={[0, 1]}
-              inputOverlayLabelLeftOpacityRange={[0, -(windowWidth / 2)]}
-              outputOverlayLabelLeftOpacityRange={[0, 1]}
-              inputOverlayLabelTopOpacityRange={[0, -(windowHeight / 2)]}
-              outputOverlayLabelTopOpacityRange={[0, 1]}
-            />
+      <GestureHandlerRootView style={styles.container}>
+        {isLoadingPosts ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2196F3" />
+            <Text style={styles.loadingText}>Loading posts...</Text>
           </View>
+        ) : isComplete ? (
+          <View style={styles.completeContainer}>
+            {deletionQueue.length > 0 ? (
+              <>
+                <Text style={styles.completeText}>Almost done!</Text>
+                <Text style={styles.completeSubtext}>
+                  Don&apos;t forget to confirm deletion of {deletionQueue.length} post
+                  {deletionQueue.length !== 1 ? 's' : ''}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.completeText}>All done! 🎉</Text>
+                <Text style={styles.completeSubtext}>
+                  {reviewInterval > 0
+                    ? `Come back in ${reviewInterval} days to review more posts`
+                    : 'No more posts to review'}
+                </Text>
+                <TouchableOpacity style={styles.refreshButton} onPress={() => loadPosts(true)}>
+                  <Text style={styles.refreshButtonText}>Check Again</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        ) : (
+          <>
+            <View style={styles.subContainer}>
+              <Swiper
+                ref={ref}
+                cardStyle={styles.cardStyle}
+                data={posts}
+                renderCard={renderCard}
+                onIndexChange={index => setCurrentIndex(index)}
+                onSwipeLeft={cardIndex => handleSwipe('left', cardIndex)}
+                onSwipeRight={cardIndex => handleSwipe('right', cardIndex)}
+                onSwipeTop={cardIndex => handleSwipe('up', cardIndex)}
+                onSwipeBottom={cardIndex => handleSwipe('down', cardIndex)}
+                onSwipedAll={handleSwipedAll}
+                OverlayLabelRight={OverlayLabelRight}
+                OverlayLabelLeft={OverlayLabelLeft}
+                OverlayLabelTop={OverlayLabelTop}
+                OverlayLabelBottom={OverlayLabelBottom}
+                swipeRightSpringConfig={SPRING_CONFIG}
+                swipeLeftSpringConfig={SPRING_CONFIG}
+                swipeTopSpringConfig={SPRING_CONFIG}
+                swipeBottomSpringConfig={SPRING_CONFIG}
+                inputOverlayLabelRightOpacityRange={[0, theme.layout.windowWidth / 2]}
+                outputOverlayLabelRightOpacityRange={[0, 1]}
+                inputOverlayLabelLeftOpacityRange={[0, -(theme.layout.windowWidth / 2)]}
+                outputOverlayLabelLeftOpacityRange={[0, 1]}
+                inputOverlayLabelTopOpacityRange={[0, -(theme.layout.windowHeight / 2)]}
+                outputOverlayLabelTopOpacityRange={[0, 1]}
+              />
+            </View>
 
-          <View style={styles.buttonsContainer}>
-            <ActionButton style={styles.button} onTap={() => handleButtonPress('reload')}>
-              <AntDesign name="reload1" size={ICON_SIZE} color="white" />
-            </ActionButton>
-            <ActionButton style={styles.button} onTap={() => handleButtonPress('delete')}>
-              <AntDesign name="close" size={ICON_SIZE} color="white" />
-            </ActionButton>
-            <ActionButton style={styles.button} onTap={() => handleButtonPress('snooze')}>
-              <AntDesign name="arrowdown" size={ICON_SIZE} color="white" />
-            </ActionButton>
-            <ActionButton style={styles.button} onTap={() => handleButtonPress('keep')}>
-              <AntDesign name="arrowup" size={ICON_SIZE} color="white" />
-            </ActionButton>
-            <ActionButton style={styles.button} onTap={() => handleButtonPress('like')}>
-              <AntDesign name="heart" size={ICON_SIZE} color="white" />
-            </ActionButton>
-          </View>
-        </>
-      )}
+            <View style={styles.buttonsContainer}>
+              <ActionButton
+                style={[styles.button, currentIndex === 0 && styles.buttonDisabled]}
+                onTap={() => currentIndex > 0 && handleButtonPress('reload')}>
+                <AntDesign
+                  name="reload1"
+                  size={ICON_SIZE}
+                  color="white"
+                  style={currentIndex === 0 ? styles.iconDisabled : undefined}
+                />
+              </ActionButton>
+              <ActionButton style={styles.button} onTap={() => handleButtonPress('delete')}>
+                <AntDesign name="close" size={ICON_SIZE} color="white" />
+              </ActionButton>
+              <ActionButton style={styles.button} onTap={() => handleButtonPress('snooze')}>
+                <AntDesign name="arrowdown" size={ICON_SIZE} color="white" />
+              </ActionButton>
+              <ActionButton style={styles.button} onTap={() => handleButtonPress('keep')}>
+                <AntDesign name="retweet" size={ICON_SIZE} color="white" />
+              </ActionButton>
+              <ActionButton style={styles.button} onTap={() => handleButtonPress('like')}>
+                <AntDesign name="heart" size={ICON_SIZE} color="white" />
+              </ActionButton>
+            </View>
+          </>
+        )}
+      </GestureHandlerRootView>
 
       {showConfig && (
         <ConfigurationScreen
@@ -696,26 +740,10 @@ const App = () => {
           isLoading={isLoggingIn}
           isLoggedIn={!!credentials.username}
           onReset={handleReset}
-          hasTriagedPosts={triagedPosts.size > 0}
+          hasTriagedPosts={triagedPosts.size + deletionQueue.length > 0}
         />
       )}
-
-      {!showConfig && deletionQueue.length > 0 ? (
-        <TouchableOpacity style={styles.confirmButton} onPress={processDeletionQueue}>
-          <Text style={styles.confirmButtonText}>DELETE ({deletionQueue.length})</Text>
-        </TouchableOpacity>
-      ) : !showConfig ? (
-        <TouchableOpacity
-          style={styles.donateButton}
-          onPress={() =>
-            Linking.openURL(
-              'https://polar.sh/smashchats/products/85592438-13d5-4310-ab04-bc77aa9adc69',
-            )
-          }>
-          <Text style={styles.donateButtonText}>❤️ Donate</Text>
-        </TouchableOpacity>
-      ) : null}
-    </GestureHandlerRootView>
+    </SafeAreaView>
   );
 };
 

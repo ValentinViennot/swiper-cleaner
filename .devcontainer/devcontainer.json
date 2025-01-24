@@ -18,8 +18,7 @@
                 "esbenp.prettier-vscode",
                 "msjsdiag.vscode-react-native",
                 "dsznajder.es7-react-js-snippets",
-                "rvest.vs-code-prettier-eslint",
-                "streetsidesoftware.code-spell-checker"
+                "rvest.vs-code-prettier-eslint"
             ]
         }
     },
