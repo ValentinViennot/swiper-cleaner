@@ -103,9 +103,9 @@ const ConfigurationScreen = ({
         ],
         { cancelable: true },
       );
-      return true; // Prevents default back action
+    } else {
+      onCancel();
     }
-    onCancel();
     return true; // Prevents default back action
   }, [hasChanges, onCancel]);
 
