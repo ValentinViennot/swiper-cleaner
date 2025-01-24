@@ -519,14 +519,14 @@ const App = () => {
       prev.filter(item => failures.some(f => f.uri === item.uri));
   };
 
-  const handleDeletionFailures = (failures: Array<{ uri: string }>) => {
+  const handleDeletionFailures = useCallback((failures: Array<{ uri: string }>) => {
     console.warn('[App] Some deletions failed:', failures);
     Alert.alert(
       'Some deletions failed',
       `${failures.length} items could not be deleted. They will remain in the queue.`,
     );
     setDeletionQueue(updateDeletionQueueWithFailures(failures));
-  };
+  }, []);
 
   const processDeletionQueue = useCallback(async () => {
     console.debug('[App] Processing deletion queue');
@@ -543,7 +543,7 @@ const App = () => {
       console.error('[App] Batch deletion error:', error);
       Alert.alert('Error', 'Failed to process deletion queue. Please try again.');
     }
-  }, [deletionQueue]);
+  }, [deletionQueue, handleDeletionFailures]);
 
   const handleReset = useCallback(async () => {
     console.debug('[Reset] Starting reset process');
