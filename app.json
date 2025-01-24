@@ -2,7 +2,7 @@
   "expo": {
     "name": "Swiper cleaner",
     "slug": "swiper-cleaner",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,6 +15,7 @@
       "**/*"
     ],
     "ios": {
+      "buildNumber": "3",
       "appleTeamId": "5P8Z824PGN",
       "supportsTablet": true,
       "bundleIdentifier": "com.unstaticlabs.swipercleaner",
@@ -23,6 +24,7 @@
       }
     },
     "android": {
+      "versionCode": 3,
       "package": "com.unstaticlabs.swipercleaner",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon-fg.png",
