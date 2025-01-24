@@ -276,15 +276,13 @@ const App = () => {
             post.type !== 'app.bsky.feed.post';
 
           if (shouldFilter) {
-            console.debug(
-              `[Posts] Filtering out post: ${post.cardUri} (${
-                filteredUris.has(post.cardUri)
-                  ? 'already processed'
-                  : !showReposts && post.isRepost
-                    ? 'repost filtered'
-                    : 'not a post'
-              })`,
-            );
+            let filterReason = 'not a post';
+            if (filteredUris.has(post.cardUri)) {
+              filterReason = 'already processed';
+            } else if (!showReposts && post.isRepost) {
+              filterReason = 'repost filtered';
+            }
+            console.debug(`[Posts] Filtering out post: ${post.cardUri} (${filterReason})`);
             return false;
           }
           return true;
