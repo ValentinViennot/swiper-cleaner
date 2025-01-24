@@ -15,6 +15,7 @@
       "**/*"
     ],
     "ios": {
+      "appleTeamId": "5P8Z824PGN",
       "supportsTablet": true,
       "bundleIdentifier": "com.unstaticlabs.swipercleaner"
     },
