@@ -17,7 +17,10 @@
     "ios": {
       "appleTeamId": "5P8Z824PGN",
       "supportsTablet": true,
-      "bundleIdentifier": "com.unstaticlabs.swipercleaner"
+      "bundleIdentifier": "com.unstaticlabs.swipercleaner",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.unstaticlabs.swipercleaner",
