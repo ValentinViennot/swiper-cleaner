@@ -84,6 +84,15 @@ Follow this guide: https://docs.expo.dev/guides/local-app-production
 
 ### Releasing for Android
 
+- Fetch the keystore from Vaultwarden. Place the file in `android/app/`.
+- Edit `~/.gradle/gradle.properties` to add the keystore password:
+  ```ini
+  SWIPER_CLEANER_UPLOAD_STORE_FILE=swiper-cleaner-upload-key.keystore
+  SWIPER_CLEANER_UPLOAD_KEY_ALIAS=swiper-cleaner-key
+  SWIPER_CLEANER_UPLOAD_STORE_PASSWORD=******
+  SWIPER_CLEANER_UPLOAD_KEY_PASSWORD=******
+  ```
+
 ```bash
 rm ./android/app/build/outputs/bundle/release/app-release.aab
 cd android
