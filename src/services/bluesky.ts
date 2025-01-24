@@ -8,9 +8,9 @@ interface RateLimitState {
 }
 
 export class BlueSkyService {
-  private agent: AtpAgent;
+  private readonly agent: AtpAgent;
   private currentCursor: string | undefined;
-  private rateLimitState: RateLimitState;
+  private readonly rateLimitState: RateLimitState;
   private readonly MAX_REQUESTS_PER_5_MIN = 3000;
   private readonly POINTS_PER_OPERATION = {
     CREATE: 3,

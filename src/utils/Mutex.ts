@@ -1,6 +1,6 @@
 export class Mutex {
   private locked = false;
-  private queue: (() => void)[] = [];
+  private readonly queue: (() => void)[] = [];
 
   async acquire(): Promise<void> {
     return new Promise(resolve => {
