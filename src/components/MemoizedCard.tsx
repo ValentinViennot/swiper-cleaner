@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import type {
   AppBskyEmbedImages,
   AppBskyEmbedRecord,
@@ -31,7 +30,7 @@ const DEFAULT_AUTHOR = {
 };
 
 const Card: React.FC<CardProps> = ({ postData, isRepost }) => {
-  console.log('[MemoizedCard] Rendering card:', { uri: postData.uri, isRepost });
+  console.debug('[MemoizedCard] Rendering card:', { uri: postData.uri, isRepost });
 
   const renderPostImage = useCallback((media: MediaEmbed, index: number) => {
     if (!media?.thumb) {
@@ -207,10 +206,10 @@ const Card: React.FC<CardProps> = ({ postData, isRepost }) => {
       const parentMedia = getEmbeddedMedia(parent.embed);
       const rootMedia = getEmbeddedMedia(root?.embed);
 
-      console.log(
-        '[MemoizedCard] Rendering parent posts:',
-        JSON.stringify({ parentMedia, rootMedia }),
-      );
+      // console.debug(
+      //   '[MemoizedCard] Rendering parent posts:',
+      //   JSON.stringify({ parentMedia, rootMedia }),
+      // );
 
       return (
         <View style={cardStyles.quoteContainer}>

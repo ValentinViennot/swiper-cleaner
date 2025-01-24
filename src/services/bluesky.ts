@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import { AtpAgent } from '@atproto/api';
 
 interface RateLimitState {
@@ -20,7 +19,7 @@ export class BlueSkyService {
   };
 
   constructor() {
-    console.log('[BlueSky] Initializing service');
+    console.debug('[BlueSky] Initializing service');
     this.agent = new AtpAgent({ service: 'https://bsky.social' });
     this.currentCursor = undefined;
     this.rateLimitState = {
@@ -65,7 +64,7 @@ export class BlueSkyService {
       const oldestTimestamp = this.rateLimitState.requestTimestamps[0] ?? now;
       const waitTime = Math.max(0, oldestTimestamp + 5 * 60 * 1000 - now);
       if (waitTime > 0) {
-        console.log(`[BlueSky] Rate limit approaching, waiting ${waitTime}ms`);
+        console.debug(`[BlueSky] Rate limit approaching, waiting ${waitTime}ms`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
     }
@@ -91,7 +90,7 @@ export class BlueSkyService {
           ? Math.min(initialDelay * Math.pow(2, attempt), 30000) // Max 30 second delay
           : initialDelay;
 
-        console.log(
+        console.debug(
           `[BlueSky] Operation failed, attempt ${attempt + 1}/${retries}, waiting ${delay}ms`,
           error,
         );
@@ -103,22 +102,22 @@ export class BlueSkyService {
 
   async login(identifier: string, password: string) {
     return this.executeWithRetry(async () => {
-      console.log('[BlueSky] Attempting login for:', identifier);
+      console.debug('[BlueSky] Attempting login for:', identifier);
       await this.agent.login({ identifier, password });
-      console.log('[BlueSky] Login successful');
+      console.debug('[BlueSky] Login successful');
     });
   }
 
   async getUserPosts(resetCursor = false) {
     return this.executeWithRetry(async () => {
-      console.log('[BlueSky] Getting user posts, resetCursor:', resetCursor);
+      console.debug('[BlueSky] Getting user posts, resetCursor:', resetCursor);
       if (resetCursor) {
-        console.log('[BlueSky] Resetting cursor');
+        console.debug('[BlueSky] Resetting cursor');
         this.currentCursor = undefined;
       }
 
       const did = this.agent.session?.did || '';
-      console.log('[BlueSky] Fetching posts for DID:', did, 'with cursor:', this.currentCursor);
+      console.debug('[BlueSky] Fetching posts for DID:', did, 'with cursor:', this.currentCursor);
 
       const response = await this.agent.getAuthorFeed({
         actor: did,
@@ -137,28 +136,28 @@ export class BlueSkyService {
   async deletePost(uri: string, isRepost: boolean) {
     return this.executeWithRetry(async () => {
       await this.checkRateLimit('DELETE');
-      console.log('[BlueSky] Attempting to delete:', { uri, isRepost });
+      console.debug('[BlueSky] Attempting to delete:', { uri, isRepost });
       if (isRepost) {
         await this.agent.deleteRepost(uri);
-        console.log('[BlueSky] Repost deleted');
+        console.debug('[BlueSky] Repost deleted');
       } else {
         await this.agent.deletePost(uri);
-        console.log('[BlueSky] Post deleted');
+        console.debug('[BlueSky] Post deleted');
       }
     });
   }
 
   async repost(uri: string, cid: string) {
     return this.executeWithRetry(async () => {
-      console.log('[BlueSky] Attempting to repost:', uri);
+      console.debug('[BlueSky] Attempting to repost:', uri);
       await this.agent.repost(uri, cid);
-      console.log('[BlueSky] Repost successful');
+      console.debug('[BlueSky] Repost successful');
     });
   }
 
   // Helper method for batch operations with rate limiting
   async batchDelete(items: Array<{ uri: string; isRepost: boolean }>) {
-    console.log(`[BlueSky] Starting batch deletion of ${items.length} items`);
+    console.debug(`[BlueSky] Starting batch deletion of ${items.length} items`);
     const results: Array<{ uri: string; success: boolean; error?: unknown }> = [];
 
     for (const item of items) {

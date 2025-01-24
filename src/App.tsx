@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 import { AntDesign } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -62,11 +61,11 @@ const App = () => {
   const swipeMutex = useRef(new Mutex());
 
   const loadTriagedPosts = useCallback(async () => {
-    console.log('[Storage] Loading triaged posts from AsyncStorage');
+    console.debug('[Storage] Loading triaged posts from AsyncStorage');
     try {
       const allKeys = await AsyncStorage.getAllKeys();
       const triagedKeys = allKeys.filter(key => key.startsWith(STORAGE_KEYS.TRIAGED_PREFIX));
-      console.log(`[Storage] Found ${triagedKeys.length} triaged posts`);
+      console.debug(`[Storage] Found ${triagedKeys.length} triaged posts`);
 
       if (triagedKeys.length > 0) {
         const items = await AsyncStorage.multiGet(triagedKeys);
@@ -81,7 +80,7 @@ const App = () => {
 
       const interval = await AsyncStorage.getItem(STORAGE_KEYS.REVIEW_INTERVAL);
       if (interval) {
-        console.log(`[Storage] Setting review interval to ${interval} days`);
+        console.debug(`[Storage] Setting review interval to ${interval} days`);
         setReviewInterval(Number(interval));
       }
     } catch (error) {
@@ -91,13 +90,13 @@ const App = () => {
 
   const addTriagedPost = useCallback(
     async (uri: string) => {
-      console.log(`[Storage] Adding post to triage: ${uri}`);
+      console.debug(`[Storage] Adding post to triage: ${uri}`);
       const normalizedUri = uri.toLowerCase();
       const timestamp = new Date().toISOString();
 
       try {
         await AsyncStorage.setItem(STORAGE_KEYS.TRIAGED_PREFIX + normalizedUri, timestamp);
-        console.log('[Storage] Successfully stored triaged post');
+        console.debug('[Storage] Successfully stored triaged post');
 
         const updatedPosts = new Map(triagedPosts);
         updatedPosts.set(normalizedUri, timestamp);
@@ -111,11 +110,11 @@ const App = () => {
 
   const cleanExpiredTriagedPosts = useCallback(async () => {
     if (reviewInterval === 0) {
-      console.log('[Cleanup] Review interval is 0, skipping cleanup');
+      console.debug('[Cleanup] Review interval is 0, skipping cleanup');
       return;
     }
 
-    console.log('[Cleanup] Starting cleanup of expired triaged posts');
+    console.debug('[Cleanup] Starting cleanup of expired triaged posts');
     const now = new Date();
     const updatedPosts = new Map(triagedPosts);
     const keysToDelete: string[] = [];
@@ -126,45 +125,45 @@ const App = () => {
         (now.getTime() - triagedDate.getTime()) / (1000 * 60 * 60 * 24),
       );
       if (daysSinceTriaged >= reviewInterval) {
-        console.log(`[Cleanup] Post expired (${daysSinceTriaged} days old): ${uri}`);
+        console.debug(`[Cleanup] Post expired (${daysSinceTriaged} days old): ${uri}`);
         updatedPosts.delete(uri);
         keysToDelete.push(STORAGE_KEYS.TRIAGED_PREFIX + uri);
       }
     }
 
     if (keysToDelete.length > 0) {
-      console.log(`[Cleanup] Removing ${keysToDelete.length} expired posts`);
+      console.debug(`[Cleanup] Removing ${keysToDelete.length} expired posts`);
       try {
         await AsyncStorage.multiRemove(keysToDelete);
         setTriagedPosts(updatedPosts);
-        console.log('[Cleanup] Successfully removed expired posts');
+        console.debug('[Cleanup] Successfully removed expired posts');
       } catch (error) {
         console.error('[Cleanup] Error removing expired posts:', error);
       }
     } else {
-      console.log('[Cleanup] No expired posts found');
+      console.debug('[Cleanup] No expired posts found');
     }
   }, [triagedPosts, reviewInterval]);
 
   // Auth Helpers
   const loadCredentials = async () => {
-    console.log('[Auth] Loading credentials from storage');
+    console.debug('[Auth] Loading credentials from storage');
     try {
       const username = await AsyncStorage.getItem(STORAGE_KEYS.USERNAME);
       const appPassword = await AsyncStorage.getItem(STORAGE_KEYS.APP_PASSWORD);
       const showRepostsStr = await AsyncStorage.getItem(STORAGE_KEYS.SHOW_REPOSTS);
 
       if (showRepostsStr !== null) {
-        console.log(`[Auth] Setting show reposts to ${showRepostsStr}`);
+        console.debug(`[Auth] Setting show reposts to ${showRepostsStr}`);
         setShowReposts(showRepostsStr === 'true');
       }
 
       if (username && appPassword) {
-        console.log(`[Auth] Found credentials for user: ${username}`);
+        console.debug(`[Auth] Found credentials for user: ${username}`);
         setCredentials({ username, appPassword });
         setShowConfig(false);
       } else {
-        console.log('[Auth] No credentials found, showing config screen');
+        console.debug('[Auth] No credentials found, showing config screen');
         setShowConfig(true);
       }
     } catch (error) {
@@ -174,13 +173,13 @@ const App = () => {
   };
 
   const clearCredentials = useCallback(async () => {
-    console.log('[Auth] Clearing credentials');
+    console.debug('[Auth] Clearing credentials');
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.USERNAME);
       await AsyncStorage.removeItem(STORAGE_KEYS.APP_PASSWORD);
       setCredentials({ username: '', appPassword: '' });
       setShowConfig(true);
-      console.log('[Auth] Credentials cleared successfully');
+      console.debug('[Auth] Credentials cleared successfully');
     } catch (error) {
       console.error('[Auth] Error clearing credentials:', error);
     }
@@ -192,22 +191,22 @@ const App = () => {
     showReposts: boolean,
     reviewInterval: number,
   ) => {
-    console.log('[Config] Saving new configuration');
+    console.debug('[Config] Saving new configuration');
     try {
       setIsLoggingIn(true);
       if (!username || !appPassword) {
         throw new Error('Username and password are required');
       }
 
-      console.log('[Config] Attempting login with new credentials');
+      console.debug('[Config] Attempting login with new credentials');
       await blueskyService.login(username, appPassword);
-      console.log('[Config] Login successful');
+      console.debug('[Config] Login successful');
 
       await AsyncStorage.setItem(STORAGE_KEYS.USERNAME, username);
       await AsyncStorage.setItem(STORAGE_KEYS.APP_PASSWORD, appPassword);
       await AsyncStorage.setItem(STORAGE_KEYS.SHOW_REPOSTS, String(showReposts));
       await AsyncStorage.setItem(STORAGE_KEYS.REVIEW_INTERVAL, String(reviewInterval));
-      console.log('[Config] Configuration saved to storage');
+      console.debug('[Config] Configuration saved to storage');
 
       setCredentials({ username, appPassword });
       setShowReposts(showReposts);
@@ -235,8 +234,8 @@ const App = () => {
       await blueskyService.login(credentials.username, credentials.appPassword);
       const { feed: userPostsResponse, hasMore } = await blueskyService.getUserPosts(resetCursor);
 
-      console.log(`[Posts] Received ${userPostsResponse.length} raw posts, hasMore: ${hasMore}`);
-      // console.log(JSON.stringify(userPostsResponse));
+      console.debug(`[Posts] Received ${userPostsResponse.length} raw posts, hasMore: ${hasMore}`);
+      // console.debug(JSON.stringify(userPostsResponse));
 
       setHasMorePosts(hasMore);
 
@@ -245,7 +244,7 @@ const App = () => {
         ...deletionQueue.map(item => item.uri),
       ]);
 
-      console.log(`[Posts] Filtering out ${filteredUris.size} URIs`);
+      console.debug(`[Posts] Filtering out ${filteredUris.size} URIs`);
 
       return userPostsResponse
         .map(post => ({
@@ -277,7 +276,7 @@ const App = () => {
             post.type !== 'app.bsky.feed.post';
 
           if (shouldFilter) {
-            console.log(
+            console.debug(
               `[Posts] Filtering out post: ${post.cardUri} (${
                 filteredUris.has(post.cardUri)
                   ? 'already processed'
@@ -305,11 +304,11 @@ const App = () => {
   const loadPosts = useCallback(
     async (resetCursor = false, byPassLoading = false): Promise<boolean> => {
       if ((isLoading && !byPassLoading) || !canLoadPosts()) {
-        console.log('[Posts] Skipping load - already loading or missing requirements');
+        console.debug('[Posts] Skipping load - already loading or missing requirements');
         return false;
       }
 
-      console.log('[Posts] Starting to load posts');
+      console.debug('[Posts] Starting to load posts');
       setIsLoading(true);
       setIsComplete(false);
 
@@ -317,12 +316,12 @@ const App = () => {
         const posts = await fetchAndFilterPosts(resetCursor);
         if (posts.length === 0) {
           if (!hasMorePosts) {
-            console.log('[Posts] No posts remaining after filtering and no more available');
+            console.debug('[Posts] No posts remaining after filtering and no more available');
             setIsComplete(true);
             setIsLoading(false);
             return false;
           } else {
-            console.log('[Posts] No posts after filtering, loading more...');
+            console.debug('[Posts] No posts after filtering, loading more...');
             return loadPosts(false, true);
           }
         }
@@ -370,7 +369,7 @@ const App = () => {
 
   const handleDeleteSwipe = useCallback(
     async (post: PostData) => {
-      console.log('[Delete] Adding post to deletion queue:', post.cardUri);
+      console.debug('[Delete] Adding post to deletion queue:', post.cardUri);
       return new Promise<void>(resolve => {
         setDeletionQueue(prev => {
           const existingIndex = prev.findIndex(item => item.uri === post.cardUri);
@@ -388,10 +387,10 @@ const App = () => {
   const handleKeepSwipe = useCallback(
     async (postUri: string, repostCid?: string) => {
       if (repostCid) {
-        console.log('[Swipe] Reposting post:', postUri);
+        console.debug('[Swipe] Reposting post:', postUri);
         await blueskyService.repost(postUri, repostCid);
       } else {
-        console.log('[Swipe] Keeping post:', postUri);
+        console.debug('[Swipe] Keeping post:', postUri);
       }
       await addTriagedPost(postUri);
     },
@@ -400,7 +399,7 @@ const App = () => {
 
   const handleSnoozeSwipe = useCallback(
     async (post: PostData) => {
-      console.log('[Swipe] Snoozing post:', post.uri);
+      console.debug('[Swipe] Snoozing post:', post.uri);
       return new Promise<void>(resolve => {
         setPosts(prevPosts => [...prevPosts, post]);
         resolve();
@@ -411,10 +410,10 @@ const App = () => {
 
   const handleSwipe = useCallback(
     async (direction: string, cardIndex: number) => {
-      console.log(`[Swipe] Handling swipe ${direction} for card ${cardIndex}`);
+      console.debug(`[Swipe] Handling swipe ${direction} for card ${cardIndex}`);
 
       if (!posts.length) {
-        console.log('[Swipe] No posts available');
+        console.debug('[Swipe] No posts available');
         return;
       }
 
@@ -422,12 +421,12 @@ const App = () => {
       try {
         const post = posts[cardIndex];
         if (!post) {
-          console.log('[Swipe] Invalid card index:', cardIndex);
+          console.debug('[Swipe] Invalid card index:', cardIndex);
           throw new Error('Invalid card index');
         }
 
         if (!post.cardUri) {
-          console.log('[Swipe] Post has no URI:', post);
+          console.debug('[Swipe] Post has no URI:', post);
           throw new Error('Invalid post URI (no URI)');
         }
 
@@ -476,14 +475,14 @@ const App = () => {
 
   const removeFromTriaged = useCallback(
     async (uri: string) => {
-      console.log(`[Storage] Removing post from triage: ${uri}`);
+      console.debug(`[Storage] Removing post from triage: ${uri}`);
       const normalizedUri = uri.toLowerCase();
       try {
         await AsyncStorage.removeItem(STORAGE_KEYS.TRIAGED_PREFIX + normalizedUri);
         const updatedPosts = new Map(triagedPosts);
         updatedPosts.delete(normalizedUri);
         setTriagedPosts(updatedPosts);
-        console.log('[Storage] Successfully removed post from triage');
+        console.debug('[Storage] Successfully removed post from triage');
       } catch (error) {
         console.error('[Storage] Error removing post from triage:', error);
       }
@@ -495,7 +494,7 @@ const App = () => {
     if (currentIndex > 0) {
       const rewindedPost = posts[currentIndex - 1];
       if (rewindedPost) {
-        console.log('[Button] Removing post from queues:', rewindedPost.cardUri);
+        console.debug('[Button] Removing post from queues:', rewindedPost.cardUri);
         setDeletionQueue(prev => prev.filter(item => item.uri !== rewindedPost.cardUri));
         await removeFromTriaged(rewindedPost.cardUri);
       }
@@ -505,7 +504,7 @@ const App = () => {
 
   const handleButtonPress = useCallback(
     (action: string) => {
-      console.log(`[Button] ${action} button pressed`);
+      console.debug(`[Button] ${action} button pressed`);
       switch (action) {
         case 'reload':
           rewindToPreviousPost();
@@ -528,7 +527,7 @@ const App = () => {
   );
 
   const processDeletionQueue = useCallback(async () => {
-    console.log('[App] Processing deletion queue');
+    console.debug('[App] Processing deletion queue');
     try {
       const results = await blueskyService.batchDelete(deletionQueue);
       const failures = results.filter(r => !r.success);
@@ -550,14 +549,14 @@ const App = () => {
   }, [deletionQueue]);
 
   const handleReset = useCallback(async () => {
-    console.log('[Reset] Starting reset process');
+    console.debug('[Reset] Starting reset process');
     try {
       const allKeys = await AsyncStorage.getAllKeys();
       const triagedKeys = allKeys.filter(key => key.startsWith(STORAGE_KEYS.TRIAGED_PREFIX));
-      console.log(`[Reset] Found ${triagedKeys.length} triaged keys to remove`);
+      console.debug(`[Reset] Found ${triagedKeys.length} triaged keys to remove`);
       await AsyncStorage.multiRemove(triagedKeys);
 
-      console.log('[Reset] Clearing application state');
+      console.debug('[Reset] Clearing application state');
       setTriagedPosts(new Map());
       setPosts([]);
       setDeletionQueue([]);
@@ -568,9 +567,9 @@ const App = () => {
 
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      console.log('[Reset] Loading fresh posts');
+      console.debug('[Reset] Loading fresh posts');
       const result = await loadPosts(true);
-      console.log('[Reset] Load posts result:', { result, hasMorePosts, posts: posts.length });
+      console.debug('[Reset] Load posts result:', { result, hasMorePosts, posts: posts.length });
     } catch (error) {
       console.error('[Reset] Error resetting triaged posts:', error);
       Alert.alert('Error', 'Failed to reset triaged posts. Please try again.');
@@ -578,9 +577,9 @@ const App = () => {
   }, [loadPosts, posts.length, hasMorePosts]);
 
   const handleSwipedAll = useCallback(() => {
-    console.log('[Swiper] Reached end of stack');
+    console.debug('[Swiper] Reached end of stack');
     if (!hasMorePosts) {
-      console.log('[Swiper] No more posts available');
+      console.debug('[Swiper] No more posts available');
       setIsComplete(true);
     }
   }, [hasMorePosts]);
@@ -589,13 +588,13 @@ const App = () => {
     if (initializationComplete || isInitializing) {
       return;
     }
-    console.log('[App] Starting initialization');
+    console.debug('[App] Starting initialization');
     setIsInitializing(true);
     loadCredentials()
       .then(() => loadTriagedPosts())
       .then(() => cleanExpiredTriagedPosts())
       .then(() => setIsAppReady(true))
-      .then(() => console.log('[App] Initialization complete'))
+      .then(() => console.debug('[App] Initialization complete'))
       .then(() => setInitializationComplete(true))
       .catch(error => console.error('[App] Initialization failed:', error))
       .finally(() => setIsInitializing(false));
@@ -610,7 +609,7 @@ const App = () => {
       !isLoading &&
       !isInitializing
     ) {
-      console.log('[Effect] Loading initial posts - app is ready');
+      console.debug('[Effect] Loading initial posts - app is ready');
       setIsLoading(true);
       loadPosts(true, true).then(() => setIsLoading(false));
     }
