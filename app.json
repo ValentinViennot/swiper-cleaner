@@ -11,9 +11,7 @@
       "resizeMode": "cover",
       "backgroundColor": "#5CA509"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "buildNumber": "3",
       "appleTeamId": "5P8Z824PGN",

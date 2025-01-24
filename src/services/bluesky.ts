@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { AtpAgent } from '@atproto/api';
 
 interface RateLimitState {
@@ -82,10 +83,10 @@ export class BlueSkyService {
       await this.checkRateLimit();
       try {
         return await operation();
-      } catch (error: any) {
+      } catch (error) {
         if (attempt === retries) throw error;
 
-        const isRateLimit = error?.status === 429;
+        const isRateLimit = (error as { status?: number }).status === 429;
         const delay = isRateLimit
           ? Math.min(initialDelay * Math.pow(2, attempt), 30000) // Max 30 second delay
           : initialDelay;
@@ -158,7 +159,7 @@ export class BlueSkyService {
   // Helper method for batch operations with rate limiting
   async batchDelete(items: Array<{ uri: string; isRepost: boolean }>) {
     console.log(`[BlueSky] Starting batch deletion of ${items.length} items`);
-    const results: Array<{ uri: string; success: boolean; error?: any }> = [];
+    const results: Array<{ uri: string; success: boolean; error?: unknown }> = [];
 
     for (const item of items) {
       try {
