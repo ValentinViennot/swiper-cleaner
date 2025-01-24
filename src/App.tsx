@@ -356,19 +356,18 @@ const App = () => {
   const OverlayLabelTop = createOverlayLabel('REPOST', colors.primary);
   const OverlayLabelBottom = createOverlayLabel('SNOOZE', colors.warning);
 
+  const updateDeletionQueue = (prev: Array<{ uri: string; isRepost: boolean }>, post: PostData) => {
+    const existingIndex = prev.findIndex(item => item.uri === post.cardUri);
+    if (existingIndex >= 0) {
+      return prev;
+    }
+    return [...prev, { uri: post.cardUri, isRepost: !!post.isRepost }];
+  };
+
   const handleDeleteSwipe = useCallback(
     async (post: PostData) => {
       console.debug('[Delete] Adding post to deletion queue:', post.cardUri);
-      return new Promise<void>(resolve => {
-        setDeletionQueue(prev => {
-          const existingIndex = prev.findIndex(item => item.uri === post.cardUri);
-          if (existingIndex >= 0) {
-            return prev;
-          }
-          return [...prev, { uri: post.cardUri, isRepost: !!post.isRepost }];
-        });
-        resolve();
-      });
+      setDeletionQueue(prev => updateDeletionQueue(prev, post));
     },
     [setDeletionQueue],
   );
@@ -515,6 +514,20 @@ const App = () => {
     [rewindToPreviousPost],
   );
 
+  const updateDeletionQueueWithFailures = (failures: Array<{ uri: string }>) => {
+    return (prev: Array<{ uri: string; isRepost: boolean }>) =>
+      prev.filter(item => failures.some(f => f.uri === item.uri));
+  };
+
+  const handleDeletionFailures = (failures: Array<{ uri: string }>) => {
+    console.warn('[App] Some deletions failed:', failures);
+    Alert.alert(
+      'Some deletions failed',
+      `${failures.length} items could not be deleted. They will remain in the queue.`,
+    );
+    setDeletionQueue(updateDeletionQueueWithFailures(failures));
+  };
+
   const processDeletionQueue = useCallback(async () => {
     console.debug('[App] Processing deletion queue');
     try {
@@ -522,12 +535,7 @@ const App = () => {
       const failures = results.filter(r => !r.success);
 
       if (failures.length > 0) {
-        console.warn('[App] Some deletions failed:', failures);
-        Alert.alert(
-          'Some deletions failed',
-          `${failures.length} items could not be deleted. They will remain in the queue.`,
-        );
-        setDeletionQueue(prev => prev.filter(item => failures.some(f => f.uri === item.uri)));
+        handleDeletionFailures(failures);
       } else {
         setDeletionQueue([]);
       }
