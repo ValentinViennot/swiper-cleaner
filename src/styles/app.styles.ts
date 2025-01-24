@@ -118,6 +118,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.xs,
+    maxWidth: '70%',
   },
   iconDisabled: {
     opacity: 0.5,
@@ -192,6 +193,7 @@ export const styles = StyleSheet.create({
   },
   userInfoText: {
     color: colors.textSecondary,
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '600',
     marginRight: spacing.xs,

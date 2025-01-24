@@ -639,7 +639,9 @@ const App = () => {
         </View>
 
         <TouchableOpacity style={styles.headerRight} onPress={() => setShowConfig(true)}>
-          <Text style={styles.userInfoText}>{credentials.username}</Text>
+          <Text style={styles.userInfoText} numberOfLines={1} ellipsizeMode="tail">
+            {credentials.username}
+          </Text>
           <AntDesign
             name="setting"
             size={24}

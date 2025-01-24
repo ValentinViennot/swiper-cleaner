@@ -10,7 +10,9 @@ export const cardStyles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   authorInfo: {
+    flex: 1,
     marginLeft: spacing.md,
+    maxWidth: '70%',
   },
   avatar: {
     borderRadius: radius.full,
@@ -108,7 +110,9 @@ export const cardStyles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   quoteAuthorInfo: {
+    flex: 1,
     marginLeft: spacing.sm,
+    maxWidth: '70%',
   },
   quoteContainer: {
     borderColor: colors.border,

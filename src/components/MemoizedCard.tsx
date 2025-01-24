@@ -117,8 +117,12 @@ const Card: React.FC<CardProps> = ({ postData, isRepost }) => {
       <View style={cardStyles.quoteAuthorContainer}>
         <Image source={{ uri: author.avatar }} style={cardStyles.quoteAuthorAvatar} />
         <View style={cardStyles.quoteAuthorInfo}>
-          <Text style={cardStyles.quoteDisplayName}>{author.displayName || ''}</Text>
-          <Text style={cardStyles.quoteHandle}>@{author.handle || 'unknown'}</Text>
+          <Text style={cardStyles.quoteDisplayName} numberOfLines={1} ellipsizeMode="tail">
+            {author.displayName || ''}
+          </Text>
+          <Text style={cardStyles.quoteHandle} numberOfLines={1} ellipsizeMode="tail">
+            @{author.handle || 'unknown'}
+          </Text>
         </View>
       </View>
     ),
@@ -194,13 +198,7 @@ const Card: React.FC<CardProps> = ({ postData, isRepost }) => {
   );
 
   const renderParentPosts = useCallback(
-    ({
-      parent,
-      root,
-    }: {
-      parent: PostView | undefined;
-      root: PostView | undefined;
-    }): React.ReactNode => {
+    ({ parent, root }: { parent?: PostView; root?: PostView }): React.ReactNode => {
       if (!parent?.record) {
         console.warn('[MemoizedCard] Invalid parent post:', parent);
         return null;
@@ -258,8 +256,14 @@ const Card: React.FC<CardProps> = ({ postData, isRepost }) => {
           <View style={cardStyles.authorContainer}>
             <Image source={{ uri: author.avatar }} style={cardStyles.avatar} />
             <View style={cardStyles.authorInfo}>
-              <Text style={cardStyles.displayName}>{author.displayName}</Text>
-              <Text style={cardStyles.handle}>@{author.handle}</Text>
+              {author.displayName && (
+                <Text style={cardStyles.displayName} numberOfLines={1} ellipsizeMode="tail">
+                  {author.displayName}
+                </Text>
+              )}
+              <Text style={cardStyles.handle} numberOfLines={1} ellipsizeMode="tail">
+                @{author.handle}
+              </Text>
             </View>
           </View>
 
@@ -269,7 +273,7 @@ const Card: React.FC<CardProps> = ({ postData, isRepost }) => {
 
           {(postData.embed?.$type === 'app.bsky.embed.record#view' &&
             renderQuotedPost(postData.embed as AppBskyEmbedRecordWithMedia.View)) ||
-            (postData.reply?.parent && renderParentPosts(postData.reply))}
+            (postData.reply && renderParentPosts(postData.reply))}
         </View>
 
         <View style={cardStyles.postFooter}>
