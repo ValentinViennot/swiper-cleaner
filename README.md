@@ -78,6 +78,36 @@ For physical device testing over WiFi, see [.devcontainer/README.md](.devcontain
 - `.devcontainer/` – Development environment configuration
 - `App.js` – Entry point
 
+## Releasing
+
+Follow this guide: https://docs.expo.dev/guides/local-app-production
+
+### Releasing for Android
+
+```bash
+rm ./android/app/build/outputs/bundle/release/app-release.aab
+cd android
+./gradlew app:bundleRelease
+cd -
+open ./android/app/build/outputs/bundle/release/
+```
+
+This will have created `app-release.aab` in `android/app/build/outputs/bundle/release/` directory.
+
+- [Create a new alpha/internal release](https://play.google.com/console/u/0/developers/9150193425219657230/app/4975439535227823261/tracks/4701409895824290687/create)
+
+### Releasing for iOS
+
+Open Xcode:
+
+```bash
+xed ios
+```
+
+- Select the target "Swipercleaner" and click on the play button.
+- Menubar: Product > Archive
+- Select "Swipercleaner" and click on "Distribute App"
+
 ## License
 
 This project is provided under the MIT License. See [LICENSE](LICENSE) for details.
