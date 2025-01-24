@@ -78,22 +78,25 @@ const App = () => {
     }
   };
 
-  const addTriagedPost = async (uri: string) => {
-    console.log(`[Storage] Adding post to triage: ${uri}`);
-    const normalizedUri = uri.toLowerCase();
-    const timestamp = new Date().toISOString();
+  const addTriagedPost = useCallback(
+    async (uri: string) => {
+      console.log(`[Storage] Adding post to triage: ${uri}`);
+      const normalizedUri = uri.toLowerCase();
+      const timestamp = new Date().toISOString();
 
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.TRIAGED_PREFIX + normalizedUri, timestamp);
-      console.log('[Storage] Successfully stored triaged post');
+      try {
+        await AsyncStorage.setItem(STORAGE_KEYS.TRIAGED_PREFIX + normalizedUri, timestamp);
+        console.log('[Storage] Successfully stored triaged post');
 
-      const updatedPosts = new Map(triagedPosts);
-      updatedPosts.set(normalizedUri, timestamp);
-      setTriagedPosts(updatedPosts);
-    } catch (error) {
-      console.error('[Storage] Error adding triaged post:', error);
-    }
-  };
+        const updatedPosts = new Map(triagedPosts);
+        updatedPosts.set(normalizedUri, timestamp);
+        setTriagedPosts(updatedPosts);
+      } catch (error) {
+        console.error('[Storage] Error adding triaged post:', error);
+      }
+    },
+    [triagedPosts, setTriagedPosts],
+  );
 
   const cleanExpiredTriagedPosts = useCallback(async () => {
     if (reviewInterval === 0) {
@@ -159,7 +162,7 @@ const App = () => {
     }
   };
 
-  const clearCredentials = async () => {
+  const clearCredentials = useCallback(async () => {
     console.log('[Auth] Clearing credentials');
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.USERNAME);
@@ -170,7 +173,7 @@ const App = () => {
     } catch (error) {
       console.error('[Auth] Error clearing credentials:', error);
     }
-  };
+  }, [setCredentials, setShowConfig]);
 
   const handleSaveConfig = async (
     username: string,
@@ -331,6 +334,47 @@ const App = () => {
   const OverlayLabelTop = createOverlayLabel('REPOST', 'blue');
   const OverlayLabelBottom = createOverlayLabel('SNOOZE', 'orange');
 
+  const handleDeleteSwipe = useCallback(
+    async (post: PostData) => {
+      console.log('[Delete] Adding post to deletion queue:', post.cardUri);
+      return new Promise<void>(resolve => {
+        setDeletionQueue(prev => {
+          const existingIndex = prev.findIndex(item => item.uri === post.cardUri);
+          if (existingIndex >= 0) {
+            return prev;
+          }
+          return [...prev, { uri: post.cardUri, isRepost: !!post.isRepost }];
+        });
+        resolve();
+      });
+    },
+    [setDeletionQueue],
+  );
+
+  const handleKeepSwipe = useCallback(
+    async (postUri: string, repostCid?: string) => {
+      if (repostCid) {
+        console.log('[Swipe] Reposting post:', postUri);
+        await blueskyService.repost(postUri, repostCid);
+      } else {
+        console.log('[Swipe] Keeping post:', postUri);
+      }
+      await addTriagedPost(postUri);
+    },
+    [addTriagedPost],
+  );
+
+  const handleSnoozeSwipe = useCallback(
+    async (post: PostData) => {
+      console.log('[Swipe] Snoozing post:', post.uri);
+      return new Promise<void>(resolve => {
+        setPosts(prevPosts => [...prevPosts, post]);
+        resolve();
+      });
+    },
+    [setPosts],
+  );
+
   const handleSwipe = useCallback(
     async (direction: string, cardIndex: number) => {
       console.log(`[Swipe] Handling swipe ${direction} for card ${cardIndex}`);
@@ -385,48 +429,15 @@ const App = () => {
         swipeMutex.current.release();
       }
     },
-    [posts, hasMorePosts, loadPosts],
-  );
-
-  const handleDeleteSwipe = useCallback(
-    async (post: PostData) => {
-      console.log('[Delete] Adding post to deletion queue:', post.cardUri);
-      return new Promise<void>(resolve => {
-        setDeletionQueue(prev => {
-          const existingIndex = prev.findIndex(item => item.uri === post.cardUri);
-          if (existingIndex >= 0) {
-            return prev;
-          }
-          return [...prev, { uri: post.cardUri, isRepost: !!post.isRepost }];
-        });
-        resolve();
-      });
-    },
-    [setDeletionQueue],
-  );
-
-  const handleKeepSwipe = useCallback(
-    async (postUri: string, repostCid?: string) => {
-      if (repostCid) {
-        console.log('[Swipe] Reposting post:', postUri);
-        await blueskyService.repost(postUri, repostCid);
-      } else {
-        console.log('[Swipe] Keeping post:', postUri);
-      }
-      await addTriagedPost(postUri);
-    },
-    [addTriagedPost],
-  );
-
-  const handleSnoozeSwipe = useCallback(
-    async (post: PostData) => {
-      console.log('[Swipe] Snoozing post:', post.uri);
-      return new Promise<void>(resolve => {
-        setPosts(prevPosts => [...prevPosts, post]);
-        resolve();
-      });
-    },
-    [setPosts],
+    [
+      posts,
+      hasMorePosts,
+      handleDeleteSwipe,
+      deletionQueue,
+      handleKeepSwipe,
+      handleSnoozeSwipe,
+      loadPosts,
+    ],
   );
 
   const removeFromTriaged = async (uri: string) => {
@@ -582,10 +593,6 @@ const App = () => {
     }
   }, [isAppReady, showConfig, loadPosts]);
 
-  useEffect(() => {
-    console.log('[App] Component mounted');
-  }, []);
-
   return (
     <GestureHandlerRootView style={styles.container}>
       <View style={styles.header}>
@@ -608,7 +615,7 @@ const App = () => {
             <>
               <Text style={styles.completeText}>Almost done!</Text>
               <Text style={styles.completeSubtext}>
-                Don't forget to confirm deletion of {deletionQueue.length} post
+                Don&apos;t forget to confirm deletion of {deletionQueue.length} post
                 {deletionQueue.length !== 1 ? 's' : ''}
               </Text>
             </>
@@ -634,10 +641,7 @@ const App = () => {
               cardStyle={styles.cardStyle}
               data={posts}
               renderCard={renderCard}
-              onIndexChange={index => {
-                console.log('[Swiper] Current Active index:', index);
-                setCurrentIndex(index);
-              }}
+              onIndexChange={index => setCurrentIndex(index)}
               onSwipeLeft={cardIndex => handleSwipe('left', cardIndex)}
               onSwipeRight={cardIndex => handleSwipe('right', cardIndex)}
               onSwipeTop={cardIndex => handleSwipe('up', cardIndex)}
