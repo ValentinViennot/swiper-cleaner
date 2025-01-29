@@ -13,7 +13,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
     "prebuild": "expo prebuild",
-    "build:android": "expo prebuild && cd android && ./gradlew assembleDebug && ./gradlew assembleRelease"
+    "build:android": "expo prebuild && cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
     "@atproto/api": "^0.13.30",
