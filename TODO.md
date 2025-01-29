@@ -1,8 +1,14 @@
-TODO
+TODO for BETA
 
 - [ ] fix privacy URL
 - [ ] icons
 - [ ] publish to stores
+
+- [ ] move stats in card header for easier readability
+- [ ] bug when reaching end of stack and lost internet connection (logging out) — should show network error and keep deletion queue
+- [ ] same as above on rate limiting (especially when have to load many pages of posts on load (because triaged))
+
+- [ ] release BETA to stores
 
 BACKLOG
 
